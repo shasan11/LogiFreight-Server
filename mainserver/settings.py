@@ -13,6 +13,7 @@ INSTALLED_APPS = [
     'pickup',
     'warehouse',
     'rest_framework',
+    
     'corsheaders',
     "simple_history",
     'djoser',

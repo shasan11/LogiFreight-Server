@@ -34,6 +34,8 @@ class BranchScopedStampedOwnedActive(StampedOwnedActive, BranchScoped):
 
 class TransactionBasedBranchScopedStampedOwnedActive(StampedOwnedActive, BranchScoped):
     approved = models.BooleanField(default=False)
+    approved_at = models.DateTimeField(blank=True, null=True, verbose_name="Approved At")
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, blank=True, null=True, related_name="approved_jvs", verbose_name="Approved By")
     voided_reason=models.TextField(blank=True, null=True)
     voided_at=models.DateTimeField(blank=True, null=True)
     exchange_rate=models.DecimalField(max_digits=18, decimal_places=6, default=1)

@@ -351,3 +351,6 @@ class MainActor(BranchScopedStampedOwnedActive):
             elif self.employee_id:
                 self.actor_type = self.ActorType.EMPLOYEE
         super().save(*args, **kwargs)
+
+class Supplier(BranchScopedStampedOwnedActive):
+    pass
