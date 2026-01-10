@@ -84,8 +84,6 @@ class Currency(models.Model):
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=100, verbose_name="Currency Name")
     symbol = models.CharField(max_length=10, verbose_name="Symbol")
-    conversion_to_default = models.DecimalField(verbose_name="Conversion to Default", default=1, max_digits=1000, decimal_places=2, validators=[MinValueValidator(0)])
-    is_default = models.BooleanField(default=False, verbose_name="Is Default")
     
 
     def __str__(self): return self.name
