@@ -17,6 +17,7 @@ class StampedOwnedActive(UUIDPk):
     user_add = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, editable=False)
     active = models.BooleanField(default=True)
     history = HistoricalRecords(inherit=True)
+    is_system_generated = models.BooleanField(default=False)
 
     class Meta:
         abstract = True
