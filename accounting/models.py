@@ -29,19 +29,12 @@ def _enforce_void_reason_and_no_reactivation(instance, *, has_void_field=True):
 
 class ChartofAccounts(BranchScoped):
     TYPE_CHOICES = [("asset", "Asset"), ("liability", "Liability"), ("equity", "Equity"), ("income", "Income"), ("expense", "Expense")]
-    id = models.AutoField(primary_key=True)
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255, verbose_name="Account Name")
     code = models.CharField(max_length=20, unique=True, verbose_name="Account Code")
     type = models.CharField(max_length=20, choices=TYPE_CHOICES, verbose_name="Account Type")
     parent_account = models.ForeignKey("self", on_delete=models.CASCADE, blank=True, null=True, related_name="sub_accounts", verbose_name="Parent Account")
     description = models.TextField(blank=True, null=True, verbose_name="Description")
-    created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    updated = models.DateTimeField(auto_now=True, blank=True, null=True)
-    user_add = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, default=get_current_user)
-    active = models.BooleanField(default=True, verbose_name="Is Active")
-    history = HistoricalRecords()
-    branch = models.ForeignKey("Branch", on_delete=models.PROTECT, verbose_name="Branch", default=get_current_user_branch, related_name="chart_of_acc_branch", blank=True, null=True)
+    
 
     def __str__(self): return f"{self.code} - {self.name}"
 

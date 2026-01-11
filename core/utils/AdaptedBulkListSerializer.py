@@ -52,3 +52,8 @@ class AdaptedBulkListSerializerMixin(object):
 
 class AdaptedBulkListSerializer(AdaptedBulkListSerializerMixin, BulkListSerializer):
     pass
+
+class BulkModelSerializer(BulkSerializerMixin, serializers.ModelSerializer):
+    class Meta:
+        list_serializer_class = AdaptedBulkListSerializer
+        depth=2

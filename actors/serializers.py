@@ -5,34 +5,7 @@ from actors.models import (
     Customer, CustomerPerson, CustomerCompany,
     Department, Designation, Employee, MainActor
 )
-
-
-class BulkListSerializer(serializers.ListSerializer):
-    def create(self, validated_data):
-        model = self.child.Meta.model
-        objs = [model(**item) for item in validated_data]
-        return model.objects.bulk_create(objs)
-
-    def update(self, instance, validated_data):
-        instance_map = {str(obj.id): obj for obj in instance}
-        updated = []
-        for item in validated_data:
-            obj = instance_map.get(str(item.get("id")))
-            if not obj:
-                continue
-            for attr, value in item.items():
-                if attr != "id":
-                    setattr(obj, attr, value)
-            updated.append(obj)
-        if updated:
-            updated[0].__class__.objects.bulk_update(updated, fields=[f for f in validated_data[0].keys() if f != "id"])
-        return updated
-
-
-class BulkModelSerializer(serializers.ModelSerializer):
-    class Meta:
-        list_serializer_class = BulkListSerializer
-
+from core.utils.AdaptedBulkListSerializer import BulkModelSerializer
 
 class BookingAgencySerializer(BulkModelSerializer):
     class Meta:

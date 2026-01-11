@@ -4,16 +4,16 @@ from django.urls import path,include
 from django.conf import settings
 from django.conf.urls.static import static
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('accounting/', include('accounting.urls')),
-    path('actors/', include('actors.urls')),
-    path('authentication/', include('authentication.urls')),
-    path('core/', include('core.urls')),
-    path('crm/', include('crm.urls')),
-    path('masters/', include('masters.urls')),
-    path('operations/', include('operations.urls')),
-    path('pickup/', include('pickup.urls')),
-    path('warehouse/', include('warehouse.urls')),
+    # path('admin/', admin.site.urls),
+    # path('accounting/', include('accounting.urls')),
+    # path('actors/', include('actors.urls')),
+    # path('authentication/', include('authentication.urls')),
+    # path('core/', include('core.urls')),
+    # path('crm/', include('crm.urls')),
+    # path('masters/', include('masters.urls')),
+    # path('operations/', include('operations.urls')),
+    # path('pickup/', include('pickup.urls')),
+    # path('warehouse/', include('warehouse.urls')),
     path("auth/", include("djoser.urls")),
     path("auth/", include("djoser.urls.jwt")),
 ]
