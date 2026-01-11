@@ -55,7 +55,6 @@ class Expenses(BranchScopedStampedOwnedActive):
     supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name="expenses_from_supplier", verbose_name="Supplier")
     expense_category = models.ForeignKey(ExpenseCategory, on_delete=models.PROTECT, verbose_name="Expense Category", blank=True, null=True)
     currency = models.ForeignKey("accounting.Currency", on_delete=models.PROTECT, related_name="currency_for_expenses", verbose_name="Currency")
-    approved = models.BooleanField(default=False, verbose_name="Approved")
     date = models.DateField(verbose_name="Invoice Date")
     due_date = models.DateField(verbose_name="Due Date")
 
@@ -165,7 +164,7 @@ class ExpensesItems(models.Model):
             parent.update_status(save=True)
 
 
-class VendorBills(models.Model):
+class VendorBills(TransactionBasedBranchScopedStampedOwnedActive):
     BILL_STATUS = [
         ("draft", "Draft"), ("pending", "Pending"), ("sent", "Sent"), ("due", "Due"), ("overdue", "Overdue"),
         ("partially_paid", "Partially Paid"), ("paid", "Paid"), ("processing", "Processing"),
@@ -178,7 +177,6 @@ class VendorBills(models.Model):
     invoice_reference = models.CharField(max_length=100, blank=True, null=True, verbose_name="Invoice Reference")
     date = models.DateField(verbose_name="Bill Date")
     due_date = models.DateField(verbose_name="Due Date")
-    approved = models.BooleanField(default=False, verbose_name="Approved")
     currency = models.ForeignKey("accounting.Currency", on_delete=models.PROTECT, related_name="currency_vendor_bills", verbose_name="Currency")
     vendor_bills_group = models.ForeignKey(VendorBillsGroup, on_delete=models.SET_NULL, blank=True, null=True, related_name="vendor_bills")
 
@@ -194,12 +192,6 @@ class VendorBills(models.Model):
 
     bill_status = models.CharField(choices=BILL_STATUS, default="due", max_length=20, verbose_name="Bill Status")
     remarks = models.TextField(blank=True, null=True, verbose_name="Remarks")
-    created = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
-    updated = models.DateTimeField(auto_now=True, verbose_name="Updated On")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="vendor_bills_created_by", blank=True, null=True, verbose_name="Created By")
-    history = HistoricalRecords()
-    branch = models.ForeignKey("master.Branch", on_delete=models.PROTECT, verbose_name="Branch", related_name="vendor_bill_branch", blank=True, null=True)
-    active = models.BooleanField(default=True, verbose_name="Active")
 
     class Meta:
         verbose_name = "Vendor Bill"
@@ -320,7 +312,7 @@ def _recalc_vendor_bill_paid(bill: VendorBills):
     bill.update_status(save=True)
 
 
-class VendorPayments(models.Model):
+class VendorPayments(TransactionBasedBranchScopedStampedOwnedActive):
     STATUS = [
         ("draft", "Draft"), ("pending", "Pending"), ("approved", "Approved"), ("void", "Void"),
         ("processing", "Processing"), ("cancelled", "Cancelled"),
@@ -331,7 +323,6 @@ class VendorPayments(models.Model):
     vendor = models.ForeignKey("actors.Vendor", on_delete=models.PROTECT, related_name="vendor_payments", verbose_name="Vendor")
     paid_from = models.ForeignKey("accounting.Account", on_delete=models.PROTECT, related_name="vendorpayments_paid_from", verbose_name="Paid From (Bank Account)")
     date = models.DateField(verbose_name="Payment Date")
-    approved = models.BooleanField(default=False, verbose_name="Approved")
     remarks = models.TextField(blank=True, null=True, verbose_name="Reference/Remarks")
     currency = models.ForeignKey("accounting.Currency", on_delete=models.PROTECT, related_name="currency_vendor_payments", verbose_name="Currency")
     amount = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Amount")
@@ -339,12 +330,6 @@ class VendorPayments(models.Model):
     tds_amount = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="TDS Amount")
     tds_type = models.CharField(max_length=100, blank=True, null=True, verbose_name="TDS Type")
     status = models.CharField(max_length=20, choices=STATUS, default="pending")
-    created = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
-    updated = models.DateTimeField(auto_now=True, verbose_name="Updated On")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="vendorpayments_created_by", blank=True, null=True, verbose_name="Created By")
-    branch = models.ForeignKey("master.Branch", on_delete=models.PROTECT, verbose_name="Branch", related_name="vendor_payments_branch", blank=True, null=True)
-    history = HistoricalRecords()
-
     class Meta:
         verbose_name = "Vendor Payment"
         verbose_name_plural = "Vendor Payments"
@@ -394,21 +379,14 @@ class VendorPaymentEntries(models.Model):
             _recalc_vendor_bill_paid(vb)
 
 
-class PurchaseReturn(models.Model):
+class PurchaseReturn(TransactionBasedBranchScopedStampedOwnedActive):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     no = models.CharField(max_length=100, blank=True, null=True, default="#DRAFT")
     vendor = models.ForeignKey("actors.Vendor", on_delete=models.PROTECT, related_name="vendor_purchase_return")
     inv_no = models.CharField(max_length=200, blank=True, null=True)
     currency = models.ForeignKey("accounting.Currency", on_delete=models.PROTECT, related_name="purchase_return_currency")
     reference_no = models.CharField(max_length=100, blank=True, null=True)
-    approved = models.BooleanField(default=False)
-    active = models.BooleanField(default=True, verbose_name="Active")
-    total = models.DecimalField(max_digits=20, decimal_places=2, default=D0)
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
-    add_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.PROTECT, related_name="pr_add")
-    branch = models.ForeignKey("master.Branch", on_delete=models.PROTECT, verbose_name="Branch", related_name="purchase_return_branch", blank=True, null=True)
-    history = HistoricalRecords()
+    
 
     class Meta:
         ordering = ("-created_at", "-id")
@@ -437,12 +415,7 @@ class PurchaseReturnItem(models.Model):
     quantity = models.PositiveIntegerField()
     vat = models.CharField(max_length=100, default="no_vat", choices=VAT_CHOICES)
     rate = models.DecimalField(max_digits=10, decimal_places=2)
-    active = models.BooleanField(default=True, verbose_name="Active")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
-    add_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.PROTECT, related_name="purchase_return_item_add")
-    branch = models.ForeignKey("master.Branch", on_delete=models.PROTECT, verbose_name="Branch", related_name="purchase_return_item_branch", blank=True, null=True)
-    history = HistoricalRecords()
+    
 
     class Meta:
         ordering = ("id",)
@@ -461,14 +434,12 @@ class PurchaseReturnItem(models.Model):
             pr.recalc_total(save=True)
 
 
-class ExpensePayments(models.Model):
+class ExpensePayments(TransactionBasedBranchScopedStampedOwnedActive):
     STATUS = [("draft", "Draft"), ("pending", "Pending"), ("approved", "Approved"), ("void", "Void")]
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name="ID")
     no = models.CharField(max_length=100, default="#DRAFT", blank=True, null=True, verbose_name="Payment No")
     paid_from = models.ForeignKey("accounting.Account", on_delete=models.PROTECT, related_name="expense_payments_paid_from", verbose_name="Paid From (Bank Account)")
     date = models.DateField(verbose_name="Payment Date")
-    approved = models.BooleanField(default=False, verbose_name="Approved")
     remarks = models.TextField(blank=True, null=True, verbose_name="Reference/Remarks")
     due_date = models.DateField(blank=True, null=True, verbose_name="Due Date")
     currency = models.ForeignKey("accounting.Currency", on_delete=models.PROTECT, related_name="expense_payments_currency", verbose_name="Currency")
@@ -477,11 +448,6 @@ class ExpensePayments(models.Model):
     tds_amount = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="TDS Amount")
     tds_type = models.CharField(max_length=100, blank=True, null=True, verbose_name="TDS Type")
     status = models.CharField(max_length=20, choices=STATUS, default="pending")
-    created = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
-    updated = models.DateTimeField(auto_now=True, verbose_name="Updated On")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="expensepayments_created_by", blank=True, null=True, verbose_name="Created By")
-    branch = models.ForeignKey("master.Branch", on_delete=models.PROTECT, verbose_name="Branch", related_name="expense_payments_branch", blank=True, null=True)
-    history = HistoricalRecords()
 
     class Meta:
         verbose_name = "Expense Payment"
