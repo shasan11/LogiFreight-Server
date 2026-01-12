@@ -68,7 +68,7 @@ class Expenses(BranchScopedStampedOwnedActive):
     paid_amount = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Paid Amount")
     remaining_amount = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Remaining Amount")
 
-    paid_from = models.ForeignKey("accounting.Account", on_delete=models.PROTECT, related_name="expenses_paid_from", verbose_name="Paid From (Bank Account)")
+    paid_from = models.ForeignKey("accounting.ChartofAccounts", on_delete=models.PROTECT, related_name="expenses_paid_from", verbose_name="Paid From (Bank Account)")
 
     class Meta:
         verbose_name = "Expense"
@@ -321,7 +321,7 @@ class VendorPayments(TransactionBasedBranchScopedStampedOwnedActive):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name="ID")
     no = models.CharField(max_length=100, default="#DRAFT", blank=True, null=True, verbose_name="Payment No")
     vendor = models.ForeignKey("actors.Vendor", on_delete=models.PROTECT, related_name="vendor_payments", verbose_name="Vendor")
-    paid_from = models.ForeignKey("accounting.Account", on_delete=models.PROTECT, related_name="vendorpayments_paid_from", verbose_name="Paid From (Bank Account)")
+    paid_from = models.ForeignKey("accounting.ChartofAccounts", on_delete=models.PROTECT, related_name="vendorpayments_paid_from", verbose_name="Paid From (Bank Account)")
     date = models.DateField(verbose_name="Payment Date")
     remarks = models.TextField(blank=True, null=True, verbose_name="Reference/Remarks")
     currency = models.ForeignKey("accounting.Currency", on_delete=models.PROTECT, related_name="currency_vendor_payments", verbose_name="Currency")
@@ -389,7 +389,7 @@ class PurchaseReturn(TransactionBasedBranchScopedStampedOwnedActive):
     
 
     class Meta:
-        ordering = ("-created_at", "-id")
+        ordering = ("-created", "-id")
         constraints = [
             models.UniqueConstraint(fields=["no"], name="uniq_purchase_return_no_when_final", condition=~Q(no__startswith="#")),
             models.CheckConstraint(check=Q(total__gte=0), name="purchase_return_total_non_negative"),
@@ -438,7 +438,7 @@ class ExpensePayments(TransactionBasedBranchScopedStampedOwnedActive):
     STATUS = [("draft", "Draft"), ("pending", "Pending"), ("approved", "Approved"), ("void", "Void")]
 
     no = models.CharField(max_length=100, default="#DRAFT", blank=True, null=True, verbose_name="Payment No")
-    paid_from = models.ForeignKey("accounting.Account", on_delete=models.PROTECT, related_name="expense_payments_paid_from", verbose_name="Paid From (Bank Account)")
+    paid_from = models.ForeignKey("accounting.ChartofAccounts", on_delete=models.PROTECT, related_name="expense_payments_paid_from", verbose_name="Paid From (Bank Account)")
     date = models.DateField(verbose_name="Payment Date")
     remarks = models.TextField(blank=True, null=True, verbose_name="Reference/Remarks")
     due_date = models.DateField(blank=True, null=True, verbose_name="Due Date")

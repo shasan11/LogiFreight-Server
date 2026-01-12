@@ -13,10 +13,10 @@ from operations.models import Shipment,ShipmentTransportInfo
 from core.utils.coreModels import BranchScopedStampedOwnedActive,TransactionBasedBranchScopedStampedOwnedActive
 
 
-def generate_unique_no(prefix: str, model: models.Model, date_field: str = "created_at") -> str:
+def generate_unique_no(prefix: str, model: models.Model, date_field: str = "created") -> str:
     today = timezone.localdate()
     today_str = today.strftime("%Y%m%d")
-    field_name = date_field if hasattr(model, date_field) else "created_at"
+    field_name = date_field if hasattr(model, date_field) else "created"
     date_filter = {f"{field_name}__date": today}
     count_today = model.objects.filter(active=True, **date_filter).count() + 1
     return f"{prefix}-{today_str}-{count_today:04d}"
@@ -50,7 +50,7 @@ class Sales(TransactionBasedBranchScopedStampedOwnedActive):
      
 
     class Meta:
-        ordering = ["-created_at", "-id"]
+        ordering = ["-created", "-id"]
         constraints = [
             models.UniqueConstraint(fields=["no"], name="uniq_sales_no_when_final", condition=~Q(no__startswith="#")),
             models.CheckConstraint(check=Q(total__gte=0), name="sales_total_non_negative"),
@@ -161,7 +161,7 @@ class CustomerPaymentItems(models.Model):
      
 
     class Meta:
-        ordering = ["-created_at", "-id"]
+        ordering = [ "-id"]
         constraints = [
             models.UniqueConstraint(fields=["no"], name="uniq_payment_item_no_when_final", condition=~Q(no__startswith="#")),
             models.CheckConstraint(check=Q(allocated_amount__gte=0), name="cpitem_alloc_non_negative"),
@@ -201,7 +201,7 @@ class SalesReturn(TransactionBasedBranchScopedStampedOwnedActive):
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="pending")
 
     class Meta:
-        ordering = ["-created_at", "-id"]
+        ordering = ["-created", "-id"]
         constraints = [
             models.UniqueConstraint(fields=["no"], name="uniq_salesreturn_no_when_final", condition=~Q(no__startswith="#")),
             models.CheckConstraint(check=Q(total__gte=0), name="sr_total_non_negative"),

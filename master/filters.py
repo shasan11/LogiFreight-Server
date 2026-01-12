@@ -16,7 +16,7 @@ from .models import (
 
 class BaseCreatedUpdatedFilter(filters.FilterSet):
     q = filters.CharFilter(method="search", label="Search")
-    created_at = filters.DateFromToRangeFilter()
+    created = filters.DateFromToRangeFilter()
     updated_at = filters.DateFromToRangeFilter()
 
 

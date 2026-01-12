@@ -4,14 +4,18 @@ SECRET_KEY = 'django-insecure-%8)21w&v@^@3s+@h(5l4lb7l-41_h0fvqa8%^=by3o!pzgsct%
 DEBUG = True
 ALLOWED_HOSTS = []
 INSTALLED_APPS = [
-    # 'actors',
-    # 'authentication',
-    # 'core',
-    # 'crm',
-    # 'master',
-    # 'operations',
-    # 'pickup',
-    # 'warehouse',
+    'accounting',
+    'actors',
+    'authentication',
+    'communication',
+    'core',
+    'crm',
+    'master',
+    'operations',
+    'pickup',
+    'purchase',
+    'sales',    
+    'warehouse',
     'rest_framework',
     
     'corsheaders',

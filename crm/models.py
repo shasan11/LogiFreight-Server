@@ -6,9 +6,10 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Sum
 from django.utils import timezone
-
+from django.core.validators import MinValueValidator
 from master.models import UnitofMeasurement, UnitofMeasurementLength
 from core.utils.coreModels import BranchScopedStampedOwnedActive, UUIDPk
+from django.db.models import Q
 
 
 def _seq_key(prefix: str, branch_id: int | None) -> str:
@@ -30,6 +31,109 @@ class LocalSequence(UUIDPk):
     def __str__(self) -> str:
         return f"{self.key}={self.last_value}"
 
+class ContactGroup(BranchScopedStampedOwnedActive):
+    name = models.CharField(max_length=120)
+    code = models.CharField(max_length=30, null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("name",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["branch", "name"],
+                name="uq_contactgroup_branch_name",
+            ),
+            models.UniqueConstraint(
+                fields=["branch", "code"],
+                condition=~Q(code__isnull=True) & ~Q(code=""),
+                name="uq_contactgroup_branch_code",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["branch", "name"]),
+            models.Index(fields=["branch", "code"]),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class Contact(BranchScopedStampedOwnedActive):
+    TYPE_CHOICES = [
+        ("customer", "Customer"),
+        ("supplier", "Supplier"),
+        ("consignee", "Consignee"),
+        ("shipper", "Shipper"),
+        ("agent", "Agent"),
+        ("carrier", "Carrier"),
+        ("other", "Other"),
+    ]
+
+    type = models.CharField(max_length=30, choices=TYPE_CHOICES, default="customer")
+
+    code = models.CharField(max_length=50, null=True, blank=True)
+    name = models.CharField(max_length=180)
+    legal_name = models.CharField(max_length=220, null=True, blank=True)
+
+    phone = models.CharField(max_length=40, null=True, blank=True)
+    phone_alt = models.CharField(max_length=40, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+    website = models.URLField(null=True, blank=True)
+
+    country = models.CharField(max_length=80, null=True, blank=True)
+    state = models.CharField(max_length=80, null=True, blank=True)
+    city = models.CharField(max_length=80, null=True, blank=True)
+    postal_code = models.CharField(max_length=20, null=True, blank=True)
+    address = models.TextField(null=True, blank=True)
+
+    tax_id = models.CharField(max_length=80, null=True, blank=True)
+    credit_limit = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+
+    notes = models.TextField(null=True, blank=True)
+
+    groups = models.ManyToManyField(
+        ContactGroup,
+        blank=True,
+        related_name="contacts",
+    )
+
+    class Meta:
+        ordering = ("name",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["branch", "code"],
+                condition=~Q(code__isnull=True) & ~Q(code=""),
+                name="uq_contact_branch_code",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["branch", "name"]),
+            models.Index(fields=["branch", "email"]),
+            models.Index(fields=["branch", "phone"]),
+            models.Index(fields=["branch", "type"]),
+        ]
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        if not self.name or not self.name.strip():
+            raise ValidationError({"name": "Name is required."})
+
+        # Optional sanity: keep email lowercase if provided
+        if self.email:
+            self.email = self.email.strip().lower()
+
+        # Optional: if code is given, strip spaces
+        if self.code:
+            self.code = self.code.strip()
+
+        super().clean()
 
 class Lead(BranchScopedStampedOwnedActive):
     class Status(models.TextChoices):
@@ -66,7 +170,7 @@ class Lead(BranchScopedStampedOwnedActive):
     source = models.CharField(max_length=20, choices=Source.choices, default=Source.OTHER)
     priority = models.CharField(max_length=20, choices=Priority.choices, default=Priority.MEDIUM)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="owned_leads", blank=True, null=True)
-    customer = models.ForeignKey("contacts.Contact", on_delete=models.PROTECT, related_name="leads", blank=True, null=True)
+    customer = models.ForeignKey("crm.Contact", on_delete=models.PROTECT, related_name="leads", blank=True, null=True)
     company_name = models.CharField(max_length=160, blank=True, null=True)
     contact_name = models.CharField(max_length=120, blank=True, null=True)
     phone = models.CharField(max_length=40, blank=True, null=True)
@@ -221,9 +325,9 @@ class Quotation(BranchScopedStampedOwnedActive):
     payment_terms_days = models.PositiveIntegerField(blank=True, null=True)
     unit_type = models.CharField(max_length=20, choices=UnitType.choices, default=UnitType.SI_METRIC)
     salesman = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="quotations", blank=True, null=True)
-    shipper = models.ForeignKey("contacts.Contact", on_delete=models.PROTECT, related_name="shipper_quotations", blank=True, null=True)
-    consignee = models.ForeignKey("contacts.Contact", on_delete=models.PROTECT, related_name="consignee_quotations", blank=True, null=True)
-    client = models.ForeignKey("contacts.Contact", on_delete=models.PROTECT, related_name="client_quotations", blank=True, null=True)
+    shipper = models.ForeignKey("crm.Contact", on_delete=models.PROTECT, related_name="shipper_quotations", blank=True, null=True)
+    consignee = models.ForeignKey("crm.Contact", on_delete=models.PROTECT, related_name="consignee_quotations", blank=True, null=True)
+    client = models.ForeignKey("crm.Contact", on_delete=models.PROTECT, related_name="client_quotations", blank=True, null=True)
     contact_person_name = models.CharField(max_length=120, blank=True, null=True)
     contact_person_phone = models.CharField(max_length=40, blank=True, null=True)
     contact_person_email = models.EmailField(blank=True, null=True)
@@ -238,7 +342,7 @@ class Quotation(BranchScopedStampedOwnedActive):
     subtotal_invoice = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     tax_total_invoice = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     total_invoice = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
-    converted_shipment = models.OneToOneField("Shipment", on_delete=models.SET_NULL, related_name="from_quotation", blank=True, null=True)
+    converted_shipment = models.OneToOneField("operations.Shipment", on_delete=models.SET_NULL, related_name="from_quotation", blank=True, null=True)
 
     class Meta:
         ordering = ["-created"]
@@ -342,7 +446,7 @@ class QuotationLineBase(models.Model):
 
     payable_at = models.CharField(max_length=20, choices=PayableAt.choices, default=PayableAt.ORIGIN)
     actor = models.CharField(max_length=30, choices=Actor.choices, default=Actor.CUSTOMER)
-    applied_to = models.ForeignKey("contacts.Contact", on_delete=models.PROTECT, null=True, blank=True)
+    applied_to = models.ForeignKey("crm.Contact", on_delete=models.PROTECT, null=True, blank=True)
     charge_name = models.CharField(max_length=120)
     charge_type = models.CharField(max_length=50, default="Fixed")
     qty = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("1.00"))

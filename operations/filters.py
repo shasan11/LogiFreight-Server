@@ -181,7 +181,7 @@ class ShipmentPackagesFilter(filters.FilterSet):
 # --- Manifest ---
 class ShipmentManifestFilter(filters.FilterSet):
     q = filters.CharFilter(method="search", label="Search")
-    created_at = filters.DateFromToRangeFilter()
+    created = filters.DateFromToRangeFilter()
     updated_at = filters.DateFromToRangeFilter()
 
     class Meta:

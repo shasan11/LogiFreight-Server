@@ -304,13 +304,13 @@ class ShipmentManifest(models.Model):
     manifest_number = models.CharField(max_length=100, unique=True, default=generate_custom_si, verbose_name="Manifest Number")
     manifest_si_number = models.CharField(max_length=100, unique=True, default=generate_custom_si, verbose_name="Manifest SI Number")
     remarks = models.TextField(blank=True, null=True, verbose_name="Remarks")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    created = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
 
     class Meta:
         verbose_name = "Shipment Manifest"
         verbose_name_plural = "Shipment Manifests"
-        ordering = ["-created_at"]
+        ordering = ["-created"]
 
     def __str__(self):
         return f"Manifest {self.manifest_number} (SI: {self.manifest_si_number})"
@@ -322,7 +322,7 @@ class ShipmentManifestBooking(models.Model):
     is_loaded = models.BooleanField(default=False, verbose_name="Is Loaded")
     loaded_count = models.PositiveIntegerField(default=0, blank=True, null=True, verbose_name="Loaded Count")
     is_manifested = models.BooleanField(default=False, verbose_name="Is Manifested")
-    shipment_items_loaded = models.ManyToManyField("warehouse.ShipmentItems", related_name="loaded_items", blank=True, verbose_name="Shipment Items Loaded")
+    shipment_items_loaded = models.ManyToManyField("warehouse.HandlingUnit", related_name="loaded_items", blank=True, verbose_name="Shipment Items Loaded")
     house_shipment = models.ForeignKey("ShipmentManifestHouse", on_delete=models.CASCADE, related_name="manifest_bookings", null=True, blank=True, verbose_name="House Shipment")
     active = models.BooleanField(default=True)
 
@@ -388,7 +388,7 @@ class ShipmentLineBase(models.Model):
 
     payable_at = models.CharField(max_length=20, choices=PayableAt.choices, default=PayableAt.ORIGIN)
     actor = models.CharField(max_length=30, choices=Actor.choices, default=Actor.CUSTOMER)
-    applied_to = models.ForeignKey("contacts.Contact", on_delete=models.PROTECT, null=True, blank=True)
+    applied_to = models.ForeignKey("crm.Contact", on_delete=models.PROTECT, null=True, blank=True)
     charge_name = models.CharField(max_length=100)
     charge_type = models.CharField(max_length=50, default="Fixed")
     qty = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("1.00"))

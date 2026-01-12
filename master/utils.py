@@ -1,6 +1,6 @@
 # master/utils.py
 
-READONLY_FIELDS_CREATED_UPDATED = ("id", "created_at", "updated_at", "history")
+READONLY_FIELDS_CREATED_UPDATED = ("id", "created", "updated_at", "history")
 READONLY_FIELDS_ID_ONLY = ("id",)
 
 USER_STAMP_FIELDS = ("user_add", "add_by", "added_by")

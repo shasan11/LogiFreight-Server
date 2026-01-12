@@ -39,70 +39,38 @@ from .filters import (
     MasterDataFilter,
 )
 
-
-class BaseMasterBulkViewSet(BulkModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, drf_filters.SearchFilter, drf_filters.OrderingFilter]
-    ordering_fields = "__all__"
-    ordering = ["-created_at"]
-    parser_classes = [MultiPartParser, FormParser, JSONParser]
-
-    def perform_create(self, serializer):
-        stamp_user_on_create(serializer, self.request)
-
-    def perform_update(self, serializer):
-        serializer.save()
-
-    @transaction.atomic
-    @action(detail=True, methods=["post"])
-    def activate(self, request, pk=None):
-        obj = self.get_object()
-        if getattr(obj, "active", None) is None:
-            return Response({"detail": "This model has no active field."}, status=400)
-        obj.active = True
-        obj.save(update_fields=["active"])
-        return Response({"detail": "Activated."})
-
-    @transaction.atomic
-    @action(detail=True, methods=["post"])
-    def deactivate(self, request, pk=None):
-        obj = self.get_object()
-        if getattr(obj, "active", None) is None:
-            return Response({"detail": "This model has no active field."}, status=400)
-        obj.active = False
-        obj.save(update_fields=["active"])
-        return Response({"detail": "Deactivated."})
+from core.utils.BaseModelViewSet import BaseModelViewSet
 
 
-class UnitofMeasurementViewSet(BaseMasterBulkViewSet):
+class UnitofMeasurementViewSet(BaseModelViewSet):
     queryset = UnitofMeasurement.objects.all()
     serializer_class = UnitofMeasurementSerializer
     filterset_class = UnitofMeasurementFilter
     search_fields = ["name", "symbol"]
 
 
-class UnitofMeasurementLengthViewSet(BaseMasterBulkViewSet):
+class UnitofMeasurementLengthViewSet(BaseModelViewSet):
     queryset = UnitofMeasurementLength.objects.all()
     serializer_class = UnitofMeasurementLengthSerializer
     filterset_class = UnitofMeasurementLengthFilter
     search_fields = ["name", "symbol"]
 
 
-class PortsViewSet(BaseMasterBulkViewSet):
+class PortsViewSet(BaseModelViewSet):
     queryset = Ports.objects.select_related("nearest_branch").all()
     serializer_class = PortsSerializer
     filterset_class = PortsFilter
     search_fields = ["name", "symbol", "iso", "iata", "edi", "country", "region", "city"]
 
 
-class BranchViewSet(BaseMasterBulkViewSet):
+class BranchViewSet(BaseModelViewSet):
     queryset = Branch.objects.all()
     serializer_class = BranchSerializer
     filterset_class = BranchFilter
     search_fields = ["branch_id", "name", "city", "state", "country"]
 
 
-class MasterDataViewSet(BaseMasterBulkViewSet):
+class MasterDataViewSet(BaseModelViewSet):
     queryset = MasterData.objects.all()
     serializer_class = MasterDataSerializer
     filterset_class = MasterDataFilter

@@ -56,7 +56,7 @@ class MasterDataSerializer(BulkSerializerMixin, serializers.ModelSerializer):
         list_serializer_class = AdaptedBulkListSerializer
 
 
-class ApplicationSettingsSerializer(serializers.ModelSerializer):
+class ApplicationSettingsSerializer(BulkSerializerMixin, serializers.ModelSerializer):
     """
     Singleton: no bulk needed.
     """
@@ -64,9 +64,11 @@ class ApplicationSettingsSerializer(serializers.ModelSerializer):
         model = ApplicationSettings
         fields = "__all__"
         read_only_fields = READONLY_FIELDS_ID_ONLY
+        list_serializer_class = AdaptedBulkListSerializer
 
 
-class ShipmentPrefixesSerializer(serializers.ModelSerializer):
+
+class ShipmentPrefixesSerializer(BulkSerializerMixin, serializers.ModelSerializer):
     """
     Singleton: no bulk needed.
     """
@@ -74,3 +76,5 @@ class ShipmentPrefixesSerializer(serializers.ModelSerializer):
         model = ShipmentPrefixes
         fields = "__all__"
         read_only_fields = READONLY_FIELDS_ID_ONLY
+        list_serializer_class = AdaptedBulkListSerializer
+

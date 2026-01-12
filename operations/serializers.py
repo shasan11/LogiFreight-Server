@@ -95,7 +95,7 @@ class ShipmentManifestSerializer(BulkSerializerMixin, serializers.ModelSerialize
     class Meta:
         model = ShipmentManifest
         fields = "__all__"
-        read_only_fields = ("id", "created_at", "updated_at")
+        read_only_fields = ("id", "created", "updated_at")
         list_serializer_class = AdaptedBulkListSerializer
 
 

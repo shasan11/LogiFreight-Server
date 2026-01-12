@@ -15,7 +15,7 @@ class UnitofMeasurement(models.Model):
     symbol = models.CharField(max_length=50, verbose_name="Unit Symbol")
     conversion_to_kg = models.DecimalField(verbose_name="Conversion to Kilogram", decimal_places=2, max_digits=10)
     active = models.BooleanField(default=True, verbose_name='Active')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
+    created = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Updated At')
     add_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.PROTECT, related_name="un_add")
     history = HistoricalRecords()
@@ -41,7 +41,7 @@ class UnitofMeasurementLength(models.Model):
     symbol = models.CharField(max_length=50, verbose_name="Unit Symbol")
     conversion_to_cm = models.DecimalField(verbose_name="Conversion to Centi Meters", decimal_places=2, max_digits=10)
     active = models.BooleanField(default=True, verbose_name='Active')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
+    created = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Updated At')
     added_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.PROTECT, related_name="unl_add")
     history = HistoricalRecords()
@@ -76,7 +76,7 @@ class Ports(models.Model):
     is_air = models.BooleanField(default=True, verbose_name='Air')
     is_sea = models.BooleanField(default=True, verbose_name='Sea')
     active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
+    created = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Updated At')
     added_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.PROTECT)
     history = HistoricalRecords()
@@ -101,7 +101,7 @@ BRANCH_CODE_RE = re.compile(rf"^{BRANCH_CODE_PREFIX}(\d+)$")
 
 
 def _next_branch_number():
-    last = Branch.objects.exclude(branch_id__isnull=True).exclude(branch_id__exact="").order_by("-created_at").first()
+    last = Branch.objects.exclude(branch_id__isnull=True).exclude(branch_id__exact="").order_by("-created").first()
     if not last or not last.branch_id:
         return 300
     m = BRANCH_CODE_RE.match(last.branch_id)
@@ -132,7 +132,7 @@ class Branch(models.Model):
     is_main_branch = models.BooleanField(default=False, verbose_name='Is Main Branch')
     active = models.BooleanField(default=True, verbose_name='Active')
     added_by = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, on_delete=models.PROTECT, related_name="user_branch_association")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
+    created = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Updated At')
     history = HistoricalRecords()
 
