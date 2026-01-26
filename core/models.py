@@ -1,10 +1,7 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 
-from master.models import Branch
-from actors.models import Customer, BookingAgency, Carrier, CustomsAgent
-
-
+ 
 class CustomUserManager(BaseUserManager):
     use_in_migrations = True
 
@@ -39,14 +36,14 @@ class CustomUser(AbstractUser):
 
     profile = models.ImageField(upload_to="profile-images/", blank=True, null=True)
     user_type = models.CharField(max_length=50, choices=UserType.choices)
-
-    customer = models.OneToOneField(Customer, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
-    booking_agency = models.OneToOneField(BookingAgency, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
-    carrier = models.OneToOneField(Carrier, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
-    customs_agent = models.OneToOneField(CustomsAgent, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
+    email = models.EmailField(unique=True)
+    # customer = models.OneToOneField(Customer, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
+    # booking_agency = models.OneToOneField(BookingAgency, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
+    # carrier = models.OneToOneField(Carrier, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
+    # customs_agent = models.OneToOneField(CustomsAgent, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
 
     branch = models.ForeignKey(
-        Branch,
+       "master.Branch",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
@@ -58,7 +55,8 @@ class CustomUser(AbstractUser):
 
     groups = models.ManyToManyField("auth.Group", blank=True, related_name="customuser_groups", related_query_name="customuser")
     user_permissions = models.ManyToManyField("auth.Permission", blank=True, related_name="customuser_permissions", related_query_name="customuser")
-
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["username"] 
     def clean(self):
         super().clean()
         mapping = {

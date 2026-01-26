@@ -10,7 +10,7 @@ from django.db import models, transaction
 from django.db.models import Q, Sum
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
-from core.utils.coreModels import TransactionBasedBranchScopedStampedOwnedActive,BranchScoped
+from core.utils.coreModels import TransactionBasedBranchScopedStampedOwnedActive,BranchScopedStampedOwnedActive,StampedOwnedActive
 from actors.models import *
 def get_current_user(): return None
 def get_current_user_branch(): return None
@@ -27,7 +27,7 @@ def _enforce_void_reason_and_no_reactivation(instance, *, has_void_field=True):
         reason = (instance.voided_reason or "").strip()
         if not reason: raise ValidationError({"voided_reason": "Voided reason is required when deactivating this record."})
 
-class ChartofAccounts(BranchScoped):
+class ChartofAccounts(BranchScopedStampedOwnedActive):
     TYPE_CHOICES = [("asset", "Asset"), ("liability", "Liability"), ("equity", "Equity"), ("income", "Income"), ("expense", "Expense")]
     name = models.CharField(max_length=255, verbose_name="Account Name")
     code = models.CharField(max_length=20, unique=True, verbose_name="Account Code")
@@ -44,7 +44,7 @@ class ChartofAccounts(BranchScoped):
         ordering = ["code"]
         indexes = [models.Index(fields=["code"]), models.Index(fields=["type"])]
 
-class BankAccounts(BranchScoped):
+class BankAccounts(BranchScopedStampedOwnedActive):
     ACC_TYPE_CHOICES = [("Cash", "Cash"), ("Bank", "Bank")]
     TYPE_CHOICES = [("savings", "Savings"), ("current", "Current")]
     id = models.AutoField(primary_key=True)
@@ -73,22 +73,22 @@ class BankAccounts(BranchScoped):
         indexes = [models.Index(fields=["code"])]
         constraints = [models.UniqueConstraint(fields=["branch", "code"], name="uniq_bank_code_per_branch_nonnull_nonempty", condition=Q(code__isnull=False) & ~Q(code=""))]
 
-class Currency(models.Model):
+class Currency(StampedOwnedActive):
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=100, verbose_name="Currency Name")
     symbol = models.CharField(max_length=10, verbose_name="Symbol")
+    is_default = models.BooleanField(default=False, verbose_name="Is Default Currency")
     
 
     def __str__(self): return self.name
 
-    def clean(self):
-        if self.is_default and str(self.conversion_to_default) != "1": raise ValidationError({"conversion_to_default": "Default currency must have a conversion factor of 1."})
+     
 
     class Meta:
         verbose_name = "Currency"
         verbose_name_plural = "Currencies"
 
-class PaymentMethod(models.Model):
+class PaymentMethod(StampedOwnedActive):
     id = models.AutoField(primary_key=True)
     uuid = models.UUIDField(unique=True, default=uuid.uuid4)
     name = models.CharField(max_length=50, unique=True, verbose_name="Payment Method Name")
@@ -98,7 +98,7 @@ class PaymentMethod(models.Model):
 
     def __str__(self): return self.name
 
-class GeneralLedger(BranchScoped):
+class GeneralLedger(BranchScopedStampedOwnedActive):
     id = models.BigAutoField(primary_key=True)
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     posting_date = models.DateField(default=timezone.now)
