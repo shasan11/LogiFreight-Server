@@ -9,7 +9,7 @@ from django.core.validators import MinValueValidator
 from django.db import models, transaction
 from django.db.models import Q, Sum
 from django.utils import timezone
-from simple_history.models import HistoricalRecords
+from accounting.utils.coa_seed import *
 from core.utils.coreModels import TransactionBasedBranchScopedStampedOwnedActive,BranchScopedStampedOwnedActive,StampedOwnedActive
 from actors.models import *
 def get_current_user(): return None
@@ -30,19 +30,45 @@ def _enforce_void_reason_and_no_reactivation(instance, *, has_void_field=True):
 class ChartofAccounts(BranchScopedStampedOwnedActive):
     TYPE_CHOICES = [("asset", "Asset"), ("liability", "Liability"), ("equity", "Equity"), ("income", "Income"), ("expense", "Expense")]
     name = models.CharField(max_length=255, verbose_name="Account Name")
-    code = models.CharField(max_length=20, unique=True, verbose_name="Account Code")
+    code = models.CharField(max_length=20,verbose_name="Account Code",blank=True,null=True)
     type = models.CharField(max_length=20, choices=TYPE_CHOICES, verbose_name="Account Type")
     parent_account = models.ForeignKey("self", on_delete=models.CASCADE, blank=True, null=True, related_name="sub_accounts", verbose_name="Parent Account")
     description = models.TextField(blank=True, null=True, verbose_name="Description")
     
 
     def __str__(self): return f"{self.code} - {self.name}"
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            old_type = None
+            old_parent_id = None
+            exists_in_db = False
+
+            if self.pk:
+                try:
+                    old = ChartofAccounts.objects.select_for_update().only("type", "parent_account_id").get(pk=self.pk)
+                    old_type = old.type
+                    old_parent_id = old.parent_account_id
+                    exists_in_db = True
+                except ChartofAccounts.DoesNotExist:
+                    # pk is set but row doesn't exist => treat as new insert
+                    exists_in_db = False
+
+            is_new = not exists_in_db
+            parent_changed = (not is_new) and (old_parent_id != self.parent_account_id)
+            type_changed = (not is_new) and (old_type != self.type)
+
+            if is_new or parent_changed or type_changed:
+                lock_bucket_for_code_generation(self)
+                self.code = generate_coa_code(self)
+
+            super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Chart of Account"
         verbose_name_plural = "Chart of Accounts"
         ordering = ["code"]
         indexes = [models.Index(fields=["code"]), models.Index(fields=["type"])]
+        constraints = [ models.UniqueConstraint(fields=["branch", "code"], name="uniq_coa_code_per_branch") ]
 
 class BankAccounts(BranchScopedStampedOwnedActive):
     ACC_TYPE_CHOICES = [("Cash", "Cash"), ("Bank", "Bank")]
@@ -52,7 +78,7 @@ class BankAccounts(BranchScopedStampedOwnedActive):
     acc_type = models.CharField(max_length=100, choices=ACC_TYPE_CHOICES, default="Bank", verbose_name="Bank/Cash")
     name = models.CharField(max_length=255, verbose_name="Account Name")
     display_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Bank Name")
-    code = models.CharField(max_length=20, unique=True, blank=True, null=True, verbose_name="Account Code")
+    code = models.CharField(max_length=20, blank=True, null=True, verbose_name="Account Code")
     currency = models.ForeignKey("Currency", on_delete=models.CASCADE, blank=True, null=True, related_name="bank_accounts", verbose_name="Currency")
     opening_balance = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)], verbose_name="Opening Balance")
     type = models.CharField(max_length=20, choices=TYPE_CHOICES, blank=True, null=True, verbose_name="Account Type")
@@ -72,6 +98,7 @@ class BankAccounts(BranchScopedStampedOwnedActive):
         ordering = ["name"]
         indexes = [models.Index(fields=["code"])]
         constraints = [models.UniqueConstraint(fields=["branch", "code"], name="uniq_bank_code_per_branch_nonnull_nonempty", condition=Q(code__isnull=False) & ~Q(code=""))]
+        
 
 class Currency(StampedOwnedActive):
     id = models.BigAutoField(primary_key=True)

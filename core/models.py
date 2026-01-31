@@ -1,6 +1,6 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-
+from actors.models import Customer, BookingAgency, Carrier, CustomsAgent
  
 class CustomUserManager(BaseUserManager):
     use_in_migrations = True
@@ -35,12 +35,12 @@ class CustomUser(AbstractUser):
         CUSTOMS_AGENT = "customs_agent", "Customs Agent"
 
     profile = models.ImageField(upload_to="profile-images/", blank=True, null=True)
-    user_type = models.CharField(max_length=50, choices=UserType.choices)
+    user_type = models.CharField(max_length=50, choices=UserType.choices,blank=True, null=True)
     email = models.EmailField(unique=True)
-    # customer = models.OneToOneField(Customer, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
-    # booking_agency = models.OneToOneField(BookingAgency, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
-    # carrier = models.OneToOneField(Carrier, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
-    # customs_agent = models.OneToOneField(CustomsAgent, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
+    customer = models.OneToOneField(Customer, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
+    booking_agency = models.OneToOneField(BookingAgency, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
+    carrier = models.OneToOneField(Carrier, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
+    customs_agent = models.OneToOneField(CustomsAgent, on_delete=models.CASCADE, null=True, blank=True, related_name="user")
 
     branch = models.ForeignKey(
        "master.Branch",
