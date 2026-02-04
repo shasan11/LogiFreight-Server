@@ -106,7 +106,7 @@ def generate_bank_account_code(*, branch_id, acc_type: str) -> str:
         else:
             next_num = int(m.group(2)) + 1
 
-    
+    return f"{prefix}{next_num:04d}"
 
 class BankAccounts(BranchScopedStampedOwnedActive):
     ACC_TYPE_CHOICES = [("Cash", "Cash"), ("Bank", "Bank")]
