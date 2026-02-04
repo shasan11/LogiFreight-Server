@@ -3,8 +3,10 @@ from django.db import models
 # Create your models here.
 from decimal import Decimal
 import uuid
+import re
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.db import transaction, IntegrityError
 from django.core.validators import MinValueValidator
 from django.db import models, transaction
 from django.db.models import Q, Sum
@@ -70,6 +72,42 @@ class ChartofAccounts(BranchScopedStampedOwnedActive):
         indexes = [models.Index(fields=["code"]), models.Index(fields=["type"])]
         constraints = [ models.UniqueConstraint(fields=["branch", "code"], name="uniq_coa_code_per_branch") ]
 
+CODE_RE = re.compile(r"^(BA|BC)(\d{4,})$")
+
+def generate_bank_account_code(*, branch_id, acc_type: str) -> str:
+    """
+    Bank => BA0001, BA0002...
+    Cash => BC0001, BC0002...
+    Sequence is per (branch, acc_type).
+    """
+    if not branch_id:
+        raise ValidationError({"branch": "Branch is required to generate code."})
+
+    prefix = "BA" if acc_type == "Bank" else "BC"
+
+    # Lock the "latest" row in this bucket so concurrent creators don't all read the same last code.
+    last = (
+        BankAccounts.objects
+        .select_for_update()
+        .filter(branch_id=branch_id, acc_type=acc_type)
+        .exclude(code__isnull=True)
+        .exclude(code__exact="")
+        .order_by("-id")
+        .first()
+    )
+
+    if not last or not last.code:
+        next_num = 1
+    else:
+        m = CODE_RE.match(last.code.strip())
+        if not m or m.group(1) != prefix:
+            # fallback: if old data is messy, just start from 1
+            next_num = 1
+        else:
+            next_num = int(m.group(2)) + 1
+
+    
+
 class BankAccounts(BranchScopedStampedOwnedActive):
     ACC_TYPE_CHOICES = [("Cash", "Cash"), ("Bank", "Bank")]
     TYPE_CHOICES = [("savings", "Savings"), ("current", "Current")]
@@ -80,7 +118,7 @@ class BankAccounts(BranchScopedStampedOwnedActive):
     display_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Bank Name")
     code = models.CharField(max_length=20, blank=True, null=True, verbose_name="Account Code")
     currency = models.ForeignKey("Currency", on_delete=models.CASCADE, blank=True, null=True, related_name="bank_accounts", verbose_name="Currency")
-    opening_balance = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)], verbose_name="Opening Balance")
+    opening_balance = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)], verbose_name="Opening Balance",default=Decimal("0.00"))
     type = models.CharField(max_length=20, choices=TYPE_CHOICES, blank=True, null=True, verbose_name="Account Type")
     account_number = models.CharField(max_length=50, blank=True, null=True, verbose_name="Account Number")
     gl_account = models.OneToOneField(ChartofAccounts, on_delete=models.PROTECT, related_name="bank_details", limit_choices_to={"type": "asset"}, verbose_name="GL Account", null=True, blank=True, help_text="The GL account (in COA) representing this bank/cash account.")
@@ -88,6 +126,27 @@ class BankAccounts(BranchScopedStampedOwnedActive):
     
 
     def __str__(self): return self.name
+
+    def save(self, *args, **kwargs):
+        # Only auto-generate if blank
+        if (self.code or "").strip():
+            return super().save(*args, **kwargs)
+
+        # Retry loop in case of rare race-condition collision
+        for _ in range(5):
+            try:
+                with transaction.atomic():
+                    self.code = generate_bank_account_code(
+                        branch_id=self.branch_id,
+                        acc_type=self.acc_type
+                    )
+                    return super().save(*args, **kwargs)
+            except IntegrityError:
+                # Another request generated the same code at the same time; try again.
+                self.code = None
+                continue
+
+        raise ValidationError({"code": "Could not generate a unique code. Please try again."})
 
     def clean(self):
         if self.gl_account and self.gl_account.type != "asset": raise ValidationError("Linked GL account must be an Asset type for Bank/Cash.")
@@ -97,7 +156,9 @@ class BankAccounts(BranchScopedStampedOwnedActive):
         verbose_name_plural = "Bank Accounts"
         ordering = ["name"]
         indexes = [models.Index(fields=["code"])]
-        constraints = [models.UniqueConstraint(fields=["branch", "code"], name="uniq_bank_code_per_branch_nonnull_nonempty", condition=Q(code__isnull=False) & ~Q(code=""))]
+        constraints = [
+        models.UniqueConstraint(fields=["branch", "code"], name="uniq_bank_code_per_branch")
+        ]
         
 
 class Currency(StampedOwnedActive):
