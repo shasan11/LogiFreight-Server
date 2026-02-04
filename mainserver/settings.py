@@ -16,8 +16,8 @@ AUTH_USER_MODEL = "core.CustomUser"
 
 INSTALLED_APPS = [
     "core",
-    "accounting",
-    "actors",
+    "accounting.apps.AccountingConfig",
+    "actors.apps.ActorsConfig",
     "authentication",
     "communication",
     "crm",
