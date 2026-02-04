@@ -159,6 +159,52 @@ class BankAccounts(BranchScopedStampedOwnedActive):
         constraints = [
         models.UniqueConstraint(fields=["branch", "code"], name="uniq_bank_code_per_branch")
         ]
+
+
+class Accounts(BranchScopedStampedOwnedActive):
+    class SourceType(models.TextChoices):
+        CHART_OF_ACCOUNTS = "coa", "Chart of Accounts"
+        BANK_ACCOUNT = "bank", "Bank Account"
+        ACTOR = "actor", "Actor"
+
+    name = models.CharField(max_length=255, verbose_name="Account Name")
+    source = models.CharField(max_length=20, choices=SourceType.choices, verbose_name="Source")
+    balance = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+    chart_account = models.OneToOneField(
+        ChartofAccounts,
+        on_delete=models.CASCADE,
+        related_name="account_record",
+        null=True,
+        blank=True,
+    )
+    bank_account = models.OneToOneField(
+        BankAccounts,
+        on_delete=models.CASCADE,
+        related_name="account_record",
+        null=True,
+        blank=True,
+    )
+    actor = models.OneToOneField(
+        "actors.MainActor",
+        on_delete=models.CASCADE,
+        related_name="account_record",
+        null=True,
+        blank=True,
+    )
+
+    def clean(self):
+        super().clean()
+        links = [self.chart_account_id, self.bank_account_id, self.actor_id]
+        if sum(1 for link in links if link) != 1:
+            raise ValidationError("Account must link to exactly one source record.")
+
+    class Meta:
+        verbose_name = "Account"
+        verbose_name_plural = "Accounts"
+        indexes = [
+            models.Index(fields=["source"], name="accounts_source_idx"),
+            models.Index(fields=["name"], name="accounts_name_idx"),
+        ]
         
 
 class Currency(StampedOwnedActive):
