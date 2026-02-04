@@ -7,16 +7,35 @@ from accounting.models import Accounts
 from sales.models import CustomerPayment, Sales, SalesReturn
 
 
+def _is_void_or_inactive(instance) -> bool:
+    if not getattr(instance, "active", True):
+        return True
+    status = getattr(instance, "status", "") or ""
+    if status in {"void", "voided"}:
+        return True
+    if getattr(instance, "voided_at", None):
+        return True
+    return False
+
+
+def _is_approved(instance) -> bool:
+    return bool(instance.approved or getattr(instance, "status", "") == "approved")
+
+
+def _should_apply(instance) -> bool:
+    return _is_approved(instance) and not _is_void_or_inactive(instance)
+
+
 def _snapshot_approval_state(instance) -> None:
     if not instance.pk:
-        instance._was_approved = False
+        instance._was_applied = False
         return
     try:
         old = type(instance).objects.get(pk=instance.pk)
     except type(instance).DoesNotExist:
-        instance._was_approved = False
+        instance._was_applied = False
         return
-    instance._was_approved = old.approved or getattr(old, "status", "") == "approved"
+    instance._was_applied = _should_apply(old)
 
 
 def _adjust_customer_account_balance(customer, delta: Decimal) -> None:
@@ -45,10 +64,12 @@ def _adjust_customer_account_balance(customer, delta: Decimal) -> None:
 
 
 def _apply_if_approved(instance, delta: Decimal) -> None:
-    is_approved = instance.approved or getattr(instance, "status", "") == "approved"
-    was_approved = getattr(instance, "_was_approved", False)
-    if is_approved and not was_approved:
+    is_applied = _should_apply(instance)
+    was_applied = getattr(instance, "_was_applied", False)
+    if is_applied and not was_applied:
         _adjust_customer_account_balance(instance.customer, delta)
+    elif was_applied and not is_applied:
+        _adjust_customer_account_balance(instance.customer, Decimal(delta) * Decimal("-1"))
 
 
 def register_sales_signals() -> None:
