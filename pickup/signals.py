@@ -4,7 +4,7 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
 
-from .models import PickupOrder, DeliveryOrder, Rider  # Rider is referenced; keep import tidy
+from .models import PickupOrder, DeliveryOrder
 
 
 def _map_delivery_status(pickup_status: str) -> str:
@@ -16,25 +16,25 @@ def _map_delivery_status(pickup_status: str) -> str:
 
     # Common normalizations
     mapping = {
-        "DRAFT": "pending",
-        "PENDING": "pending",
-        "CONFIRMED": "scheduled",
-        "ASSIGNED": "assigned",
-        "IN_TRANSIT": "in_transit",
-        "ARRIVED": "arrival_pending",
-        "PICKED_UP": "in_transit",
-        "FAILED": "failed",
-        "CANCELLED": "cancelled",
-        "COMPLETED": "delivered",
-        "RESCHEDULED": "rescheduled",
-        "ON_HOLD": "on_hold",
-        "PARTIALLY_PICKED": "partial",
+        "DRAFT": "PENDING",
+        "PENDING": "PENDING",
+        "CONFIRMED": "PENDING",
+        "ASSIGNED": "OUT_FOR_DELIVERY",
+        "IN_TRANSIT": "OUT_FOR_DELIVERY",
+        "ARRIVED": "OUT_FOR_DELIVERY",
+        "PICKED_UP": "OUT_FOR_DELIVERY",
+        "FAILED": "FAILED",
+        "CANCELLED": "CANCELLED",
+        "COMPLETED": "DELIVERED",
+        "RESCHEDULED": "PENDING",
+        "ON_HOLD": "PENDING",
+        "PARTIALLY_PICKED": "OUT_FOR_DELIVERY",
         # Fallbacks often seen in this codebase:
-        "CREATED": "pending",
-        "RECEIVED": "received",
-        "DISPATCHED": "dispatched",
+        "CREATED": "PENDING",
+        "RECEIVED": "PENDING",
+        "DISPATCHED": "OUT_FOR_DELIVERY",
     }
-    return mapping.get(status, "pending")
+    return mapping.get(status, "PENDING")
 
 
 def _derive_delivery_address(instance: PickupOrder) -> str:
@@ -45,7 +45,7 @@ def _derive_delivery_address(instance: PickupOrder) -> str:
     return (
         (instance.receiver_address or "").strip()
         or (instance.destination or "").strip()
-        or (instance.address or "").strip()
+        or (instance.sender_address or "").strip()
         or ""
     )
 
@@ -70,7 +70,7 @@ def _sync_fields_from_pickup_to_delivery(instance: PickupOrder, delivery: Delive
         changed = True
 
     # When marked delivered, set delivery_date if not set
-    if new_status == "delivered" and delivery.delivery_date is None:
+    if new_status == "DELIVERED" and delivery.delivery_date is None:
         delivery.delivery_date = timezone.now().date()
         changed = True
 
@@ -117,7 +117,7 @@ def sync_delivery_order_on_pickup_save(sender, instance: PickupOrder, created: b
             user_add=getattr(instance, "user_add", None),
         )
         # Set delivered date if already delivered at creation time (rare)
-        if delivery.delivery_status == "delivered" and delivery.delivery_date is None:
+        if delivery.delivery_status == "DELIVERED" and delivery.delivery_date is None:
             delivery.delivery_date = timezone.now().date()
         delivery.save()
         return
@@ -133,7 +133,7 @@ def sync_delivery_order_on_pickup_save(sender, instance: PickupOrder, created: b
             branch=getattr(instance, "branch", None),
             user_add=getattr(instance, "user_add", None),
         )
-        if delivery.delivery_status == "delivered" and delivery.delivery_date is None:
+        if delivery.delivery_status == "DELIVERED" and delivery.delivery_date is None:
             delivery.delivery_date = timezone.now().date()
         delivery.save()
         return

@@ -6,7 +6,7 @@ from .models import (
     Rider,
     PickupRequest,
     PickupOrder,
-    PickupPackages,
+    PickupPackage,
     PickupRunsheet,
     DeliveryOrder,
     DeliveryAttempt,
@@ -88,9 +88,9 @@ class RiderForm(BasePlaceholderModelForm):
 class PickupRequestForm(BasePlaceholderModelForm):
     class Meta:
         model = PickupRequest
-        exclude = ("id", "uuid", "created", "updated", "user_add", "history", "active", "branch")
+        exclude = ("id", "code", "created", "updated", "user_add", "history", "active", "branch")
         widgets = {
-            "client": SELECT,
+            "Customer": SELECT,
             "location": TEXT_INPUT,
             "requested_date": DATE_INPUT,
             "time_window": TEXT_INPUT,
@@ -103,16 +103,16 @@ class PickupRequestForm(BasePlaceholderModelForm):
 class PickupOrderForm(BasePlaceholderModelForm):
     class Meta:
         model = PickupOrder
-        exclude = ("id", "uuid", "created", "updated", "user_add", "history", "active", "branch")
+        exclude = ("id", "code", "created", "updated", "user_add", "history", "active", "branch")
         widgets = {
             "pickup_request": SELECT,
             "vendor": SELECT,
             "from_location": TEXT_INPUT,
             "destination": TEXT_INPUT,
-            "sender_name": SELECT,
-            "address": TEXT_INPUT,
-            "phone": TEXT_INPUT,
-            "alt_number": TEXT_INPUT,
+            "sender_Customer": SELECT,
+            "sender_address": TEXT_INPUT,
+            "sender_phone": TEXT_INPUT,
+            "sender_alt_number": TEXT_INPUT,
             "receiver_name": TEXT_INPUT,
             "receiver_address": TEXT_INPUT,
             "receiver_phone": TEXT_INPUT,
@@ -129,12 +129,12 @@ class PickupOrderForm(BasePlaceholderModelForm):
         }
 
 
-class PickupPackagesForm(BasePlaceholderModelForm):
+class PickupPackageForm(BasePlaceholderModelForm):
     class Meta:
-        model = PickupPackages
-        exclude = ("id", "uuid", "created", "updated", "user_add", "history", "active", "branch")
+        model = PickupPackage
+        exclude = ("id", "code", "created", "updated", "user_add", "history", "active", "branch")
         widgets = {
-            "good_description": TEXT_INPUT,
+            "goods_description": TEXT_INPUT,
             "fragile": BOOLEAN, 
             "pickup_order": SELECT,
             "weight": NUMBER_INPUT,
@@ -149,7 +149,7 @@ class PickupPackagesForm(BasePlaceholderModelForm):
 class PickupRunsheetForm(BasePlaceholderModelForm):
     class Meta:
         model = PickupRunsheet
-        exclude = ("id", "uuid", "created", "updated", "user_add", "history", "active", "branch")
+        exclude = ("id", "code", "created", "updated", "user_add", "history", "active", "branch")
         widgets = {
             "vehicle": SELECT,
             "rider": SELECT,
@@ -161,7 +161,7 @@ class PickupRunsheetForm(BasePlaceholderModelForm):
 class DeliveryOrderForm(BasePlaceholderModelForm):
     class Meta:
         model = DeliveryOrder
-        exclude = ("id", "uuid", "created", "updated", "user_add", "history", "active", "branch")
+        exclude = ("id", "code", "created", "updated", "user_add", "history", "active", "branch")
         widgets = {
             "pickup_order": SELECT,
             "delivery_address": TEXT_INPUT,
@@ -199,7 +199,7 @@ class ProofOfDeliveryForm(BasePlaceholderModelForm):
 class DeliveryRunsheetForm(BasePlaceholderModelForm):
     class Meta:
         model = DeliveryRunsheet
-        exclude = ("id", "uuid", "created", "updated", "user_add", "history", "active", "branch")
+        exclude = ("id", "code", "created", "updated", "user_add", "history", "active", "branch")
         widgets = {
             "rider": SELECT,
             "vehicle": SELECT,
@@ -213,7 +213,7 @@ class DeliveryRunsheetForm(BasePlaceholderModelForm):
 class ReturnToVendorForm(BasePlaceholderModelForm):
     class Meta:
         model = ReturnToVendor
-        exclude = ("id", "uuid", "created", "updated", "user_add", "history", "active", "branch")
+        exclude = ("id", "code", "created", "updated", "user_add", "history", "active", "branch")
         widgets = {
             "vendor": SELECT,
             "reference_order": SELECT,
@@ -226,7 +226,7 @@ class ReturnToVendorForm(BasePlaceholderModelForm):
 class RtvBranchReturnForm(BasePlaceholderModelForm):
     class Meta:
         model = RtvBranchReturn
-        exclude = ("id", "uuid", "created", "updated", "user_add", "history", "active")
+        exclude = ("id", "code", "created", "updated", "user_add", "history", "active")
         widgets = {
             "pickup_order": SELECT,
             "from_branch": SELECT,
@@ -239,7 +239,7 @@ class RtvBranchReturnForm(BasePlaceholderModelForm):
 class DispatchManifestForm(BasePlaceholderModelForm):
     class Meta:
         model = DispatchManifest
-        exclude = ("id", "uuid", "created", "updated", "user_add", "history", "active", "branch")
+        exclude = ("id", "code", "created", "updated", "user_add", "history", "active", "branch")
         widgets = {
             "rider": SELECT,
             "vehicle": SELECT,
@@ -252,7 +252,7 @@ class DispatchManifestForm(BasePlaceholderModelForm):
 class ReceiveManifestForm(BasePlaceholderModelForm):
     class Meta:
         model = ReceiveManifest
-        exclude = ("id", "uuid", "created", "updated", "user_add", "history", "active", "branch")
+        exclude = ("id", "code", "created", "updated", "user_add", "history", "active", "branch")
         widgets = {
             "from_branch": SELECT,
             "to_branch": SELECT,

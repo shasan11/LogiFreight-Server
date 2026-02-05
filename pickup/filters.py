@@ -21,14 +21,37 @@ class RiderFilter(BaseStampedFilter):
 
 
 class PickupRequestFilter(BaseStampedFilter):
-    class Meta: model=PickupRequest; fields={"client":["exact"],"status":["exact"],"requested_date":["exact","gte","lte"],"active":["exact"],"branch":["exact"]}
+    client = filters.NumberFilter(field_name="Customer")
+
+    class Meta:
+        model = PickupRequest
+        fields = {
+            "client": ["exact"],
+            "status": ["exact"],
+            "requested_date": ["exact", "gte", "lte"],
+            "active": ["exact"],
+            "branch": ["exact"],
+        }
+
     def search(self, qs, name, value):
         if not value: return qs
-        return qs.filter(dj_models.Q(code__icontains=value)|dj_models.Q(location__icontains=value)|dj_models.Q(time_window__icontains=value)|dj_models.Q(client__name__icontains=value)).distinct()
+        return qs.filter(dj_models.Q(code__icontains=value)|dj_models.Q(location__icontains=value)|dj_models.Q(time_window__icontains=value)|dj_models.Q(Customer__name__icontains=value)).distinct()
 
 
 class PickupOrderFilter(BaseStampedFilter):
-    class Meta: model=PickupOrder; fields={"pickup_request":["exact"],"vendor":["exact"],"sender_client":["exact"],"status":["exact"],"active":["exact"],"branch":["exact"]}
+    sender_client = filters.NumberFilter(field_name="sender_Customer")
+
+    class Meta:
+        model = PickupOrder
+        fields = {
+            "pickup_request": ["exact"],
+            "vendor": ["exact"],
+            "sender_client": ["exact"],
+            "status": ["exact"],
+            "active": ["exact"],
+            "branch": ["exact"],
+        }
+
     def search(self, qs, name, value):
         if not value: return qs
         return qs.filter(
@@ -38,7 +61,7 @@ class PickupOrderFilter(BaseStampedFilter):
             dj_models.Q(receiver_name__icontains=value)|
             dj_models.Q(receiver_phone__icontains=value)|
             dj_models.Q(ref_no__icontains=value)|
-            dj_models.Q(sender_client__name__icontains=value)
+            dj_models.Q(sender_Customer__name__icontains=value)
         ).distinct()
 
 

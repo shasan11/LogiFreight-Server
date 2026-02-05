@@ -27,17 +27,17 @@ class RiderViewSet(BaseModelViewSet):
 
 
 class PickupRequestViewSet(BaseModelViewSet):
-    queryset = PickupRequest.objects.select_related("client").all()
+    queryset = PickupRequest.objects.select_related("Customer").all()
     serializer_class = PickupRequestSerializer
     filterset_class = PickupRequestFilter
-    search_fields = ["code","location","time_window","client__name"]
+    search_fields = ["code","location","time_window","Customer__name"]
 
 
 class PickupOrderViewSet(BaseModelViewSet):
-    queryset = PickupOrder.objects.select_related("pickup_request","vendor","sender_client").all()
+    queryset = PickupOrder.objects.select_related("pickup_request","vendor","sender_Customer").all()
     serializer_class = PickupOrderSerializer
     filterset_class = PickupOrderFilter
-    search_fields = ["code","from_location","destination","receiver_name","receiver_phone","ref_no","sender_client__name"]
+    search_fields = ["code","from_location","destination","receiver_name","receiver_phone","ref_no","sender_Customer__name"]
 
 
 class PickupPackageViewSet(BaseModelViewSet):
