@@ -42,35 +42,35 @@ from .filters import (
 from core.utils.BaseModelViewSet import BaseModelViewSet
 
 
-class UnitofMeasurementViewSet(BaseModelViewSet):
+class UnitofMeasurementViewSet(BulkModelViewSet):
     queryset = UnitofMeasurement.objects.all()
     serializer_class = UnitofMeasurementSerializer
     filterset_class = UnitofMeasurementFilter
     search_fields = ["name", "symbol"]
 
 
-class UnitofMeasurementLengthViewSet(BaseModelViewSet):
+class UnitofMeasurementLengthViewSet(BulkModelViewSet):
     queryset = UnitofMeasurementLength.objects.all()
     serializer_class = UnitofMeasurementLengthSerializer
     filterset_class = UnitofMeasurementLengthFilter
     search_fields = ["name", "symbol"]
 
 
-class PortsViewSet(BaseModelViewSet):
+class PortsViewSet(BulkModelViewSet):
     queryset = Ports.objects.select_related("nearest_branch").all()
     serializer_class = PortsSerializer
     filterset_class = PortsFilter
     search_fields = ["name", "symbol", "iso", "iata", "edi", "country", "region", "city"]
 
 
-class BranchViewSet(BaseModelViewSet):
+class BranchViewSet(BulkModelViewSet):
     queryset = Branch.objects.all()
     serializer_class = BranchSerializer
     filterset_class = BranchFilter
     search_fields = ["branch_id", "name", "city", "state", "country"]
 
 
-class MasterDataViewSet(BaseModelViewSet):
+class MasterDataViewSet(BulkModelViewSet):
     queryset = MasterData.objects.all()
     serializer_class = MasterDataSerializer
     filterset_class = MasterDataFilter

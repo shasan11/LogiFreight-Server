@@ -1,3 +1,6 @@
+# purchase/models.py
+from __future__ import annotations
+
 from decimal import Decimal
 import uuid
 
@@ -5,14 +8,128 @@ from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Q, Sum, F, DecimalField, ExpressionWrapper
 from django.core.exceptions import ValidationError
-from simple_history.models import HistoricalRecords
 
-from core.utils.coreModels import TransactionBasedBranchScopedStampedOwnedActive, BranchScopedStampedOwnedActive, StampedOwnedActive
+from core.utils.coreModels import (
+    TransactionBasedBranchScopedStampedOwnedActive,
+    BranchScopedStampedOwnedActive,
+    StampedOwnedActive,
+)
 from actors.models import Supplier
-
 
 D0 = Decimal("0.00")
 
+
+# -----------------------------
+# Helpers for AP -> Operations
+# -----------------------------
+
+def _safe_decimal(v):
+    return v if v is not None else D0
+
+
+def _get_or_create_payment_summary_for_shipment(shipment):
+    from operations.models import PaymentSummary
+    ps, _ = PaymentSummary.objects.get_or_create(
+        shipment=shipment,
+        defaults={"branch": shipment.branch},
+    )
+    return ps
+
+
+def _sync_vendor_bill_item_to_shipment_costing(vbi: "VendorBillItems"):
+    if not vbi.shipment_id:
+        return
+
+    from operations.models import ShipmentCostings
+
+    shipment = vbi.shipment
+    ps = _get_or_create_payment_summary_for_shipment(shipment)
+
+    qty = (vbi.qty or D0)
+    base_unit = (vbi.rate or D0)
+
+    # spread absolute taxes across units (simple + stable)
+    per_unit_tax = D0
+    if qty > 0:
+        per_unit_tax = (vbi.taxes or D0) / qty
+
+    effective_unit = (base_unit + per_unit_tax).quantize(Decimal("0.01"))
+
+    defaults = dict(
+        branch=shipment.branch,
+        payment_summary=ps,
+        actor="Vendor",
+        payable_at="Origin",
+        charge_name=(vbi.description or "Vendor Cost"),
+        charge_type="Fixed",
+        qty=qty if qty > 0 else Decimal("1.00"),
+        tax_name=None,
+        tax_rate=Decimal("0.00"),
+        is_tax_exempt=True,
+        reference_no=vbi.vendorbills.no if vbi.vendorbills_id else None,
+        charge_currency=vbi.vendorbills.currency if vbi.vendorbills_id else None,
+        invoice_currency=vbi.vendorbills.currency if vbi.vendorbills_id else None,
+        exchange_rate=Decimal("1.000000"),
+        unit_price_charge=effective_unit,
+        unit_price_invoice=effective_unit,
+        remarks=vbi.remarks,
+        vendor_bill_item=vbi,
+        expense_item=None,
+    )
+
+    ShipmentCostings.objects.update_or_create(
+        vendor_bill_item=vbi,
+        defaults=defaults,
+    )
+
+    ps.recompute_from_lines(save=True)
+
+
+def _sync_expense_item_to_shipment_costing(ei: "ExpensesItems"):
+    if not ei.shipment_id:
+        return
+
+    from operations.models import ShipmentCostings
+
+    shipment = ei.shipment
+    ps = _get_or_create_payment_summary_for_shipment(shipment)
+
+    qty = (ei.quantity or D0)
+    unit = (ei.rate or D0)
+
+    defaults = dict(
+        branch=shipment.branch,
+        payment_summary=ps,
+        actor="Vendor",
+        payable_at="Origin",
+        charge_name=(ei.description or "Expense Cost"),
+        charge_type="Fixed",
+        qty=qty if qty > 0 else Decimal("1.00"),
+        tax_name=None,
+        tax_rate=Decimal("0.00"),
+        is_tax_exempt=True,
+        reference_no=ei.expenses.exp_no if ei.expenses_id else None,
+        charge_currency=ei.expenses.currency if ei.expenses_id else None,
+        invoice_currency=ei.expenses.currency if ei.expenses_id else None,
+        exchange_rate=Decimal("1.000000"),
+        unit_price_charge=unit,
+        unit_price_invoice=unit,
+        remarks=None,
+        vendor_bill_item=None,
+        expense_item=ei,
+    )
+
+    ShipmentCostings.objects.update_or_create(
+        expense_item=ei,
+        defaults=defaults,
+    )
+
+    ps.recompute_from_lines(save=True)
+
+
+# -----------------------------
+# Models
+# -----------------------------
 
 class VendorBillsGroup(BranchScopedStampedOwnedActive):
     STATUS_CHOICES = [("pending", "Pending"), ("approved", "Approved"), ("void", "Void"), ("draft", "Draft")]
@@ -31,6 +148,12 @@ class VendorBillsGroup(BranchScopedStampedOwnedActive):
     def __str__(self):
         return f"{self.no or '#DRAFT'} ({self.status})"
 
+    def recalc_total(self, save: bool = True):
+        total = self.vendor_bills.filter(active=True).aggregate(s=Sum("total_amount")).get("s") or D0
+        self.total_amount = total
+        if save:
+            self.save(update_fields=["total_amount"])
+
 
 class ExpenseCategory(StampedOwnedActive):
     name = models.CharField(max_length=100, verbose_name="Category Name")
@@ -47,16 +170,33 @@ class ExpenseCategory(StampedOwnedActive):
 
 
 class Expenses(BranchScopedStampedOwnedActive):
-    STATUS_CHOICES = [("draft", "Draft"), ("pending", "Pending"), ("approved", "Approved"), ("void", "Void"), ("paid", "Paid"), ("partially_paid", "Partially Paid")]
+    STATUS_CHOICES = [
+        ("draft", "Draft"),
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("void", "Void"),
+        ("paid", "Paid"),
+        ("partially_paid", "Partially Paid"),
+    ]
 
     exp_no = models.CharField(max_length=100, default="#DRAFT")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+
     invoice_reference = models.CharField(max_length=100, verbose_name="Invoice Reference")
     supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name="expenses_from_supplier", verbose_name="Supplier")
     expense_category = models.ForeignKey(ExpenseCategory, on_delete=models.PROTECT, verbose_name="Expense Category", blank=True, null=True)
+
     currency = models.ForeignKey("accounting.Currency", on_delete=models.PROTECT, related_name="currency_for_expenses", verbose_name="Currency")
     date = models.DateField(verbose_name="Invoice Date")
     due_date = models.DateField(verbose_name="Due Date")
+
+    # OPTIONAL integration header link
+    shipment = models.ForeignKey(
+        "operations.Shipment",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="expenses",
+    )
 
     subtotal_amount = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Subtotal Amount")
     non_taxable_amount = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Non-Taxable Amount")
@@ -114,7 +254,7 @@ class Expenses(BranchScopedStampedOwnedActive):
         if total <= D0:
             status = self.status
         elif paid <= D0:
-            status = "approved" if self.approved else self.status
+            status = "approved" if getattr(self, "approved", False) else self.status
         elif paid >= total:
             status = "paid"
         else:
@@ -130,6 +270,15 @@ class ExpensesItems(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name="ID")
     expenses = models.ForeignKey(Expenses, on_delete=models.CASCADE, related_name="expenses_items", verbose_name="Expense")
+
+    # integration pointer (line-level)
+    shipment = models.ForeignKey(
+        "operations.Shipment",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="expense_items",
+    )
+
     description = models.TextField(blank=True, null=True, verbose_name="Description")
     rate = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Rate")
     quantity = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Quantity")
@@ -150,15 +299,29 @@ class ExpensesItems(models.Model):
         return f"{self.expenses_id} - {self.amount}"
 
     def save(self, *args, **kwargs):
+        # inherit shipment from header if missing
+        if not self.shipment_id and self.expenses_id and getattr(self.expenses, "shipment_id", None):
+            self.shipment = self.expenses.shipment
+
         self.amount = (self.rate or D0) * (self.quantity or D0)
+
         super().save(*args, **kwargs)
+
         if self.expenses_id:
             self.expenses.recalc_from_items(save=True)
             self.expenses.update_status(save=True)
 
+        transaction.on_commit(lambda: _sync_expense_item_to_shipment_costing(self))
+
     def delete(self, *args, **kwargs):
+        from operations.models import ShipmentCostings
+
         parent = self.expenses
+        pk = self.pk
         super().delete(*args, **kwargs)
+
+        ShipmentCostings.objects.filter(expense_item_id=pk).delete()
+
         if parent:
             parent.recalc_from_items(save=True)
             parent.update_status(save=True)
@@ -179,6 +342,14 @@ class VendorBills(TransactionBasedBranchScopedStampedOwnedActive):
     due_date = models.DateField(verbose_name="Due Date")
     currency = models.ForeignKey("accounting.Currency", on_delete=models.PROTECT, related_name="currency_vendor_bills", verbose_name="Currency")
     vendor_bills_group = models.ForeignKey(VendorBillsGroup, on_delete=models.SET_NULL, blank=True, null=True, related_name="vendor_bills")
+
+    # OPTIONAL integration header link
+    shipment = models.ForeignKey(
+        "operations.Shipment",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="vendor_bills",
+    )
 
     subtotal_amount = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Subtotal Amount")
     non_taxable_amount = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Non-Taxable Amount")
@@ -240,7 +411,7 @@ class VendorBills(TransactionBasedBranchScopedStampedOwnedActive):
         if total <= D0:
             status = self.bill_status
         elif paid <= D0:
-            status = "approved" if self.approved else self.bill_status
+            status = "approved" if getattr(self, "approved", False) else self.bill_status
         elif paid >= total:
             status = "paid"
         else:
@@ -256,6 +427,15 @@ class VendorBillItems(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     vendorbills = models.ForeignKey(VendorBills, on_delete=models.CASCADE, related_name="bill_items", verbose_name="Vendor Bill")
+
+    # integration pointer (line-level)
+    shipment = models.ForeignKey(
+        "operations.Shipment",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="vendor_bill_items",
+    )
+
     description = models.TextField(blank=True, null=True, verbose_name="Description")
     rate = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Rate")
     qty = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Quantity")
@@ -279,29 +459,36 @@ class VendorBillItems(models.Model):
         ]
 
     def save(self, *args, **kwargs):
+        # inherit branch + shipment from header if missing
+        if not self.branch_id and self.vendorbills_id:
+            self.branch = getattr(self.vendorbills, "branch", None)
+
+        if not self.shipment_id and self.vendorbills_id and getattr(self.vendorbills, "shipment_id", None):
+            self.shipment = self.vendorbills.shipment
+
         line_base = (self.rate or D0) * (self.qty or D0)
         self.total = max(D0, line_base + (self.taxes or D0) - (self.discount or D0))
+
         super().save(*args, **kwargs)
+
         if self.vendorbills_id:
             self.vendorbills.recalc_from_items(save=True)
             self.vendorbills.update_status(save=True)
 
+        transaction.on_commit(lambda: _sync_vendor_bill_item_to_shipment_costing(self))
+
     def delete(self, *args, **kwargs):
+        from operations.models import ShipmentCostings
+
         parent = self.vendorbills
+        pk = self.pk
         super().delete(*args, **kwargs)
+
+        ShipmentCostings.objects.filter(vendor_bill_item_id=pk).delete()
+
         if parent:
             parent.recalc_from_items(save=True)
             parent.update_status(save=True)
-
-
-def _group_recalc_total(group_id):
-    from django.apps import apps
-    VendorBills = apps.get_model("your_app_name_here", "VendorBills")  # replace app label if you want to call this helper
-    return VendorBills.objects.filter(vendor_bills_group_id=group_id).aggregate(s=Sum("total_amount"))["s"] or D0
-
-
-def _safe_decimal(v):
-    return v if v is not None else D0
 
 
 def _recalc_vendor_bill_paid(bill: VendorBills):
@@ -330,6 +517,7 @@ class VendorPayments(TransactionBasedBranchScopedStampedOwnedActive):
     tds_amount = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="TDS Amount")
     tds_type = models.CharField(max_length=100, blank=True, null=True, verbose_name="TDS Type")
     status = models.CharField(max_length=20, choices=STATUS, default="pending")
+
     class Meta:
         verbose_name = "Vendor Payment"
         verbose_name_plural = "Vendor Payments"
@@ -377,130 +565,3 @@ class VendorPaymentEntries(models.Model):
             vp.recalc_amount(save=True)
         if vb:
             _recalc_vendor_bill_paid(vb)
-
-
-class PurchaseReturn(TransactionBasedBranchScopedStampedOwnedActive):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    no = models.CharField(max_length=100, blank=True, null=True, default="#DRAFT")
-    vendor = models.ForeignKey("actors.Vendor", on_delete=models.PROTECT, related_name="vendor_purchase_return")
-    inv_no = models.CharField(max_length=200, blank=True, null=True)
-    currency = models.ForeignKey("accounting.Currency", on_delete=models.PROTECT, related_name="purchase_return_currency")
-    reference_no = models.CharField(max_length=100, blank=True, null=True)
-    
-
-    class Meta:
-        ordering = ("-created", "-id")
-        constraints = [
-            models.UniqueConstraint(fields=["no"], name="uniq_purchase_return_no_when_final", condition=~Q(no__startswith="#")),
-            models.CheckConstraint(check=Q(total__gte=0), name="purchase_return_total_non_negative"),
-        ]
-
-    def __str__(self):
-        return self.no or str(self.pk)
-
-    def recalc_total(self, save: bool = True):
-        agg = self.items.aggregate(s=Sum("total"))
-        self.total = agg["s"] or D0
-        if save:
-            self.save(update_fields=["total"])
-
-
-class PurchaseReturnItem(models.Model):
-    VAT_CHOICES = (("no_vat", "No VAT"), ("zero_vat", "0% VAT"), ("thirteen_vat", "13% VAT"))
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    total = models.DecimalField(max_digits=20, decimal_places=2, default=D0)
-    purchase_return = models.ForeignKey(PurchaseReturn, on_delete=models.CASCADE, related_name="items")
-    item_name = models.CharField(max_length=255)
-    quantity = models.PositiveIntegerField()
-    vat = models.CharField(max_length=100, default="no_vat", choices=VAT_CHOICES)
-    rate = models.DecimalField(max_digits=10, decimal_places=2)
-    
-
-    class Meta:
-        ordering = ("id",)
-        constraints = [models.CheckConstraint(check=Q(total__gte=0), name="purchase_return_item_total_non_negative")]
-
-    def save(self, *args, **kwargs):
-        self.total = Decimal(self.quantity or 0) * (self.rate or D0)
-        super().save(*args, **kwargs)
-        if self.purchase_return_id:
-            self.purchase_return.recalc_total(save=True)
-
-    def delete(self, *args, **kwargs):
-        pr = self.purchase_return
-        super().delete(*args, **kwargs)
-        if pr:
-            pr.recalc_total(save=True)
-
-
-class ExpensePayments(TransactionBasedBranchScopedStampedOwnedActive):
-    STATUS = [("draft", "Draft"), ("pending", "Pending"), ("approved", "Approved"), ("void", "Void")]
-
-    no = models.CharField(max_length=100, default="#DRAFT", blank=True, null=True, verbose_name="Payment No")
-    paid_from = models.ForeignKey("accounting.ChartofAccounts", on_delete=models.PROTECT, related_name="expense_payments_paid_from", verbose_name="Paid From (Bank Account)")
-    date = models.DateField(verbose_name="Payment Date")
-    remarks = models.TextField(blank=True, null=True, verbose_name="Reference/Remarks")
-    due_date = models.DateField(blank=True, null=True, verbose_name="Due Date")
-    currency = models.ForeignKey("accounting.Currency", on_delete=models.PROTECT, related_name="expense_payments_currency", verbose_name="Currency")
-    amount = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Amount")
-    bank_charges = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Bank Charges")
-    tds_amount = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="TDS Amount")
-    tds_type = models.CharField(max_length=100, blank=True, null=True, verbose_name="TDS Type")
-    status = models.CharField(max_length=20, choices=STATUS, default="pending")
-
-    class Meta:
-        verbose_name = "Expense Payment"
-        verbose_name_plural = "Expense Payments"
-        ordering = ("-date", "-id")
-        constraints = [
-            models.UniqueConstraint(fields=["no"], name="uniq_expensepayments_no_when_final", condition=~Q(no__startswith="#")),
-            models.CheckConstraint(check=Q(amount__gte=0), name="expensepayments_amount_non_negative"),
-        ]
-
-    def __str__(self):
-        return self.no or str(self.pk)
-
-    def recalc_amount(self, save: bool = True):
-        agg = self.payment_entries.aggregate(s=Sum("amount"))
-        self.amount = agg["s"] or D0
-        if save:
-            self.save(update_fields=["amount"])
-
-
-def _recalc_expense_paid(exp: Expenses):
-    agg = exp.expense_payment_entries.aggregate(s=Sum("amount"))
-    exp.paid_amount = agg["s"] or D0
-    exp.remaining_amount = max(D0, _safe_decimal(exp.total_amount) - _safe_decimal(exp.paid_amount))
-    exp.save(update_fields=["paid_amount", "remaining_amount"])
-    exp.update_status(save=True)
-
-
-class ExpensePaymentEntries(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name="ID")
-    expense_payments = models.ForeignKey(ExpensePayments, on_delete=models.CASCADE, related_name="payment_entries", verbose_name="Expense Payment")
-    expenses = models.ForeignKey(Expenses, on_delete=models.PROTECT, related_name="expense_payment_entries", verbose_name="Expense")
-    amount = models.DecimalField(default=D0, max_digits=18, decimal_places=2, verbose_name="Applied Amount")
-    branch = models.ForeignKey("master.Branch", on_delete=models.PROTECT, verbose_name="Branch", related_name="expense_payment_entries_branch", blank=True, null=True)
-
-    class Meta:
-        verbose_name = "Expense Payment Entry"
-        verbose_name_plural = "Expense Payment Entries"
-        ordering = ("id",)
-        constraints = [models.CheckConstraint(check=Q(amount__gte=0), name="expensepaymententries_amount_non_negative")]
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        if self.expense_payments_id:
-            self.expense_payments.recalc_amount(save=True)
-        if self.expenses_id:
-            _recalc_expense_paid(self.expenses)
-
-    def delete(self, *args, **kwargs):
-        ep = self.expense_payments
-        exp = self.expenses
-        super().delete(*args, **kwargs)
-        if ep:
-            ep.recalc_amount(save=True)
-        if exp:
-            _recalc_expense_paid(exp)
