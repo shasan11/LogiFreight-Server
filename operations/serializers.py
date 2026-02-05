@@ -10,8 +10,6 @@ from .models import (
     ShipmentDocument,
     ShipmentNote,
     ShipmentTransportInfo,
-    ShipmentAdditionalInfo,
-    ShipmentWaybillFreightInfo,
     ShipmentPackages,
     ShipmentManifest,
     ShipmentManifestBooking,
@@ -61,22 +59,6 @@ class ShipmentNoteSerializer(BulkSerializerMixin, serializers.ModelSerializer):
 class ShipmentTransportInfoSerializer(BulkSerializerMixin, serializers.ModelSerializer):
     class Meta:
         model = ShipmentTransportInfo
-        fields = "__all__"
-        read_only_fields = READONLY_FIELDS
-        list_serializer_class = AdaptedBulkListSerializer
-
-
-class ShipmentAdditionalInfoSerializer(BulkSerializerMixin, serializers.ModelSerializer):
-    class Meta:
-        model = ShipmentAdditionalInfo
-        fields = "__all__"
-        read_only_fields = READONLY_FIELDS
-        list_serializer_class = AdaptedBulkListSerializer
-
-
-class ShipmentWaybillFreightInfoSerializer(BulkSerializerMixin, serializers.ModelSerializer):
-    class Meta:
-        model = ShipmentWaybillFreightInfo
         fields = "__all__"
         read_only_fields = READONLY_FIELDS
         list_serializer_class = AdaptedBulkListSerializer

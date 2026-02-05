@@ -7,8 +7,6 @@ from .views import (
     ExpensesViewSet, ExpensesItemsViewSet,
     VendorBillsViewSet, VendorBillItemsViewSet,
     VendorPaymentsViewSet, VendorPaymentEntriesViewSet,
-    PurchaseReturnViewSet, PurchaseReturnItemViewSet,
-    ExpensePaymentsViewSet, ExpensePaymentEntriesViewSet,
 )
 
 router = DefaultRouter()
@@ -20,10 +18,6 @@ router.register(r"vendor-bills", VendorBillsViewSet, basename="vendor-bills")
 router.register(r"vendor-bill-items", VendorBillItemsViewSet, basename="vendor-bill-items")
 router.register(r"vendor-payments", VendorPaymentsViewSet, basename="vendor-payments")
 router.register(r"vendor-payment-entries", VendorPaymentEntriesViewSet, basename="vendor-payment-entries")
-router.register(r"purchase-returns", PurchaseReturnViewSet, basename="purchase-returns")
-router.register(r"purchase-return-items", PurchaseReturnItemViewSet, basename="purchase-return-items")
-router.register(r"expense-payments", ExpensePaymentsViewSet, basename="expense-payments")
-router.register(r"expense-payment-entries", ExpensePaymentEntriesViewSet, basename="expense-payment-entries")
 
 urlpatterns = [
     path("api/", include(router.urls)),

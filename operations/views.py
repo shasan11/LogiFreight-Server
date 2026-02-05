@@ -1,12 +1,6 @@
 # operations/views.py
 
-from django.db import transaction
-from rest_framework import permissions, filters as drf_filters, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework_bulk.generics import BulkModelViewSet
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.parsers import FormParser, MultiPartParser
 
 from .utils import stamp_user_on_create
 from .models import (
@@ -14,8 +8,6 @@ from .models import (
     ShipmentDocument,
     ShipmentNote,
     ShipmentTransportInfo,
-    ShipmentAdditionalInfo,
-    ShipmentWaybillFreightInfo,
     ShipmentPackages,
     ShipmentManifest,
     ShipmentManifestBooking,
@@ -29,8 +21,6 @@ from .serializers import (
     ShipmentDocumentSerializer,
     ShipmentNoteSerializer,
     ShipmentTransportInfoSerializer,
-    ShipmentAdditionalInfoSerializer,
-    ShipmentWaybillFreightInfoSerializer,
     ShipmentPackagesSerializer,
     ShipmentManifestSerializer,
     ShipmentManifestBookingSerializer,
@@ -44,8 +34,6 @@ from .filters import (
     ShipmentDocumentFilter,
     ShipmentNoteFilter,
     ShipmentTransportInfoFilter,
-    ShipmentAdditionalInfoFilter,
-    ShipmentWaybillFreightInfoFilter,
     ShipmentPackagesFilter,
     ShipmentManifestFilter,
     ShipmentManifestBookingFilter,
@@ -83,20 +71,6 @@ class ShipmentTransportInfoViewSet(BaseModelViewSet):
     serializer_class = ShipmentTransportInfoSerializer
     filterset_class = ShipmentTransportInfoFilter
     search_fields = ["state", "airline", "flight_no", "bill_of_lading", "tracking_no"]
-
-
-class ShipmentAdditionalInfoViewSet(BaseModelViewSet):
-    queryset = ShipmentAdditionalInfo.objects.select_related("shipment").all()
-    serializer_class = ShipmentAdditionalInfoSerializer
-    filterset_class = ShipmentAdditionalInfoFilter
-    search_fields = ["final_destination", "place_of_receipt", "order_no", "declaration_no", "salesman"]
-
-
-class ShipmentWaybillFreightInfoViewSet(BaseModelViewSet):
-    queryset = ShipmentWaybillFreightInfo.objects.select_related("shipment").all()
-    serializer_class = ShipmentWaybillFreightInfoSerializer
-    filterset_class = ShipmentWaybillFreightInfoFilter
-    search_fields = ["air_waybill_no", "accounting_info", "exporter_name", "importer_name"]
 
 
 class ShipmentPackagesViewSet(BaseModelViewSet):
