@@ -6,8 +6,6 @@ from .models import (
     VendorBillsGroup, ExpenseCategory, Expenses, ExpensesItems,
     VendorBills, VendorBillItems,
     VendorPayments, VendorPaymentEntries,
-    PurchaseReturn, PurchaseReturnItem,
-    ExpensePayments, ExpensePaymentEntries,
 )
 
 
@@ -196,118 +194,6 @@ class VendorPaymentsSerializer(serializers.ModelSerializer):
                     keep_ids.add(e_id)
                 else:
                     new = VendorPaymentEntries.objects.create(vendor_payments=instance, **{k: v for k, v in e.items() if k != "id"})
-                    keep_ids.add(str(new.id))
-
-            for ex_id, ex_obj in existing.items():
-                if ex_id not in keep_ids:
-                    ex_obj.delete()
-
-        instance.recalc_amount(save=True)
-        return instance
-
-
-class PurchaseReturnItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PurchaseReturnItem
-        fields = "__all__"
-        read_only_fields = ("id",)
-
-
-class PurchaseReturnSerializer(serializers.ModelSerializer):
-    items = PurchaseReturnItemSerializer(many=True, required=False)
-
-    class Meta:
-        model = PurchaseReturn
-        fields = "__all__"
-        read_only_fields = ("created", "updated", "user_add", "history", "total")
-
-    @transaction.atomic
-    def create(self, validated_data):
-        items = validated_data.pop("items", [])
-        obj = PurchaseReturn.objects.create(**validated_data)
-        for it in items:
-            PurchaseReturnItem.objects.create(purchase_return=obj, **it)
-        obj.recalc_total(save=True)
-        return obj
-
-    @transaction.atomic
-    def update(self, instance, validated_data):
-        items = validated_data.pop("items", None)
-        for k, v in validated_data.items():
-            setattr(instance, k, v)
-        instance.save()
-
-        if items is not None:
-            existing = {str(x.id): x for x in instance.items.all()}
-            keep_ids = set()
-
-            for it in items:
-                it_id = str(it.get("id")) if it.get("id") else None
-                if it_id and it_id in existing:
-                    obj = existing[it_id]
-                    for k, v in it.items():
-                        if k != "id":
-                            setattr(obj, k, v)
-                    obj.save()
-                    keep_ids.add(it_id)
-                else:
-                    new = PurchaseReturnItem.objects.create(purchase_return=instance, **{k: v for k, v in it.items() if k != "id"})
-                    keep_ids.add(str(new.id))
-
-            for ex_id, ex_obj in existing.items():
-                if ex_id not in keep_ids:
-                    ex_obj.delete()
-
-        instance.recalc_total(save=True)
-        return instance
-
-
-class ExpensePaymentEntriesSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ExpensePaymentEntries
-        fields = "__all__"
-        read_only_fields = ("id",)
-
-
-class ExpensePaymentsSerializer(serializers.ModelSerializer):
-    payment_entries = ExpensePaymentEntriesSerializer(many=True, required=False)
-
-    class Meta:
-        model = ExpensePayments
-        fields = "__all__"
-        read_only_fields = ("created", "updated", "user_add", "history", "amount")
-
-    @transaction.atomic
-    def create(self, validated_data):
-        entries = validated_data.pop("payment_entries", [])
-        obj = ExpensePayments.objects.create(**validated_data)
-        for e in entries:
-            ExpensePaymentEntries.objects.create(expense_payments=obj, **e)
-        obj.recalc_amount(save=True)
-        return obj
-
-    @transaction.atomic
-    def update(self, instance, validated_data):
-        entries = validated_data.pop("payment_entries", None)
-        for k, v in validated_data.items():
-            setattr(instance, k, v)
-        instance.save()
-
-        if entries is not None:
-            existing = {str(x.id): x for x in instance.payment_entries.all()}
-            keep_ids = set()
-
-            for e in entries:
-                e_id = str(e.get("id")) if e.get("id") else None
-                if e_id and e_id in existing:
-                    obj = existing[e_id]
-                    for k, v in e.items():
-                        if k != "id":
-                            setattr(obj, k, v)
-                    obj.save()
-                    keep_ids.add(e_id)
-                else:
-                    new = ExpensePaymentEntries.objects.create(expense_payments=instance, **{k: v for k, v in e.items() if k != "id"})
                     keep_ids.add(str(new.id))
 
             for ex_id, ex_obj in existing.items():

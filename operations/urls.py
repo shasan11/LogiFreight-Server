@@ -8,8 +8,6 @@ from .views import (
     ShipmentDocumentViewSet,
     ShipmentNoteViewSet,
     ShipmentTransportInfoViewSet,
-    ShipmentAdditionalInfoViewSet,
-    ShipmentWaybillFreightInfoViewSet,
     ShipmentPackagesViewSet,
     ShipmentManifestViewSet,
     ShipmentManifestBookingViewSet,
@@ -25,8 +23,6 @@ router.register(r"shipments", ShipmentViewSet, basename="shipments")
 router.register(r"shipments/documents", ShipmentDocumentViewSet, basename="shipment-documents")
 router.register(r"shipments/notes", ShipmentNoteViewSet, basename="shipment-notes")
 router.register(r"shipments/transport-info", ShipmentTransportInfoViewSet, basename="shipment-transport-info")
-router.register(r"shipments/additional-info", ShipmentAdditionalInfoViewSet, basename="shipment-additional-info")
-router.register(r"shipments/waybill-info", ShipmentWaybillFreightInfoViewSet, basename="shipment-waybill-info")
 router.register(r"shipments/packages", ShipmentPackagesViewSet, basename="shipment-packages")
 
 router.register(r"manifests", ShipmentManifestViewSet, basename="shipment-manifests")

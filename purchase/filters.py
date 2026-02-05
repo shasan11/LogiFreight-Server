@@ -5,8 +5,6 @@ from .models import (
     VendorBillsGroup, ExpenseCategory, Expenses, ExpensesItems,
     VendorBills, VendorBillItems,
     VendorPayments, VendorPaymentEntries,
-    PurchaseReturn, PurchaseReturnItem,
-    ExpensePayments, ExpensePaymentEntries,
 )
 
 
@@ -80,40 +78,3 @@ class VendorPaymentEntriesFilter(df.FilterSet):
     class Meta:
         model = VendorPaymentEntries
         fields = ["vendor_payments", "vendor_bills", "branch"]
-
-
-class PurchaseReturnFilter(df.FilterSet):
-    created_from = df.DateFilter(field_name="created", lookup_expr="date__gte")
-    created_to = df.DateFilter(field_name="created", lookup_expr="date__lte")
-    no = df.CharFilter(field_name="no", lookup_expr="icontains")
-    inv_no = df.CharFilter(field_name="inv_no", lookup_expr="icontains")
-    reference_no = df.CharFilter(field_name="reference_no", lookup_expr="icontains")
-
-    class Meta:
-        model = PurchaseReturn
-        fields = ["vendor", "currency", "branch", "no", "approved", "active", "inv_no", "reference_no"]
-
-
-class PurchaseReturnItemFilter(df.FilterSet):
-    item_name = df.CharFilter(field_name="item_name", lookup_expr="icontains")
-
-    class Meta:
-        model = PurchaseReturnItem
-        fields = ["purchase_return", "vat", "active", "item_name"]
-
-
-class ExpensePaymentsFilter(df.FilterSet):
-    date_from = df.DateFilter(field_name="date", lookup_expr="gte")
-    date_to = df.DateFilter(field_name="date", lookup_expr="lte")
-    no = df.CharFilter(field_name="no", lookup_expr="icontains")
-    remarks = df.CharFilter(field_name="remarks", lookup_expr="icontains")
-
-    class Meta:
-        model = ExpensePayments
-        fields = ["status", "currency", "branch", "no", "approved", "remarks"]
-
-
-class ExpensePaymentEntriesFilter(df.FilterSet):
-    class Meta:
-        model = ExpensePaymentEntries
-        fields = ["expense_payments", "expenses", "branch"]

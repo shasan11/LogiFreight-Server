@@ -12,24 +12,18 @@ from .models import (
     VendorBillsGroup, ExpenseCategory, Expenses, ExpensesItems,
     VendorBills, VendorBillItems,
     VendorPayments, VendorPaymentEntries,
-    PurchaseReturn, PurchaseReturnItem,
-    ExpensePayments, ExpensePaymentEntries,
 )
 from .serializers import (
     VendorBillsGroupSerializer, ExpenseCategorySerializer,
     ExpensesSerializer, ExpensesItemsSerializer,
     VendorBillsSerializer, VendorBillItemsSerializer,
     VendorPaymentsSerializer, VendorPaymentEntriesSerializer,
-    PurchaseReturnSerializer, PurchaseReturnItemSerializer,
-    ExpensePaymentsSerializer, ExpensePaymentEntriesSerializer,
 )
 from .filters import (
     VendorBillsGroupFilter, ExpenseCategoryFilter,
     ExpensesFilter, ExpensesItemsFilter,
     VendorBillsFilter, VendorBillItemsFilter,
     VendorPaymentsFilter, VendorPaymentEntriesFilter,
-    PurchaseReturnFilter, PurchaseReturnItemFilter,
-    ExpensePaymentsFilter, ExpensePaymentEntriesFilter,
 )
 
 
@@ -196,100 +190,4 @@ class VendorPaymentEntriesViewSet(BaseModelViewSet):
     queryset = VendorPaymentEntries.objects.all().select_related("vendor_payments", "vendor_bills", "branch")
     serializer_class = VendorPaymentEntriesSerializer
     filterset_class = VendorPaymentEntriesFilter
-    ordering_fields = ["id"]
-
-
-# --------------------------
-# PURCHASE RETURN + ITEMS
-# --------------------------
-class PurchaseReturnViewSet(BaseModelViewSet):
-    queryset = PurchaseReturn.objects.all().select_related("vendor", "currency", "branch").prefetch_related("items")
-    serializer_class = PurchaseReturnSerializer
-    filterset_class = PurchaseReturnFilter
-    search_fields = ["no", "inv_no", "reference_no"]
-    ordering_fields = ["created", "id"]
-
-    @action(detail=True, methods=["get", "post"], url_path="items")
-    def items(self, request, pk=None):
-        pr = self.get_object()
-
-        if request.method == "GET":
-            ser = PurchaseReturnItemSerializer(pr.items.all(), many=True)
-            return Response(ser.data)
-
-        ser = PurchaseReturnItemSerializer(data=request.data)
-        ser.is_valid(raise_exception=True)
-        ser.save(purchase_return=pr)
-        return Response(ser.data, status=status.HTTP_201_CREATED)
-
-    @action(detail=True, methods=["get", "patch", "delete"], url_path=r"items/(?P<item_id>[^/.]+)")
-    def item_detail(self, request, pk=None, item_id=None):
-        pr = self.get_object()
-        item = get_object_or_404(PurchaseReturnItem, id=item_id, purchase_return=pr)
-
-        if request.method == "GET":
-            return Response(PurchaseReturnItemSerializer(item).data)
-
-        if request.method == "PATCH":
-            ser = PurchaseReturnItemSerializer(item, data=request.data, partial=True)
-            ser.is_valid(raise_exception=True)
-            ser.save()
-            return Response(ser.data)
-
-        item.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class PurchaseReturnItemViewSet(BaseModelViewSet):
-    queryset = PurchaseReturnItem.objects.all().select_related("purchase_return")
-    serializer_class = PurchaseReturnItemSerializer
-    filterset_class = PurchaseReturnItemFilter
-    ordering_fields = ["id"]
-
-
-# --------------------------
-# EXPENSE PAYMENTS + ENTRIES
-# --------------------------
-class ExpensePaymentsViewSet(BaseModelViewSet):
-    queryset = ExpensePayments.objects.all().select_related("currency", "branch").prefetch_related("payment_entries")
-    serializer_class = ExpensePaymentsSerializer
-    filterset_class = ExpensePaymentsFilter
-    search_fields = ["no", "remarks"]
-    ordering_fields = ["date", "created", "id"]
-
-    @action(detail=True, methods=["get", "post"], url_path="entries")
-    def entries(self, request, pk=None):
-        pay = self.get_object()
-
-        if request.method == "GET":
-            ser = ExpensePaymentEntriesSerializer(pay.payment_entries.all(), many=True)
-            return Response(ser.data)
-
-        ser = ExpensePaymentEntriesSerializer(data=request.data)
-        ser.is_valid(raise_exception=True)
-        ser.save(expense_payments=pay)
-        return Response(ser.data, status=status.HTTP_201_CREATED)
-
-    @action(detail=True, methods=["get", "patch", "delete"], url_path=r"entries/(?P<entry_id>[^/.]+)")
-    def entry_detail(self, request, pk=None, entry_id=None):
-        pay = self.get_object()
-        entry = get_object_or_404(ExpensePaymentEntries, id=entry_id, expense_payments=pay)
-
-        if request.method == "GET":
-            return Response(ExpensePaymentEntriesSerializer(entry).data)
-
-        if request.method == "PATCH":
-            ser = ExpensePaymentEntriesSerializer(entry, data=request.data, partial=True)
-            ser.is_valid(raise_exception=True)
-            ser.save()
-            return Response(ser.data)
-
-        entry.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class ExpensePaymentEntriesViewSet(BaseModelViewSet):
-    queryset = ExpensePaymentEntries.objects.all().select_related("expense_payments", "expenses", "branch")
-    serializer_class = ExpensePaymentEntriesSerializer
-    filterset_class = ExpensePaymentEntriesFilter
     ordering_fields = ["id"]

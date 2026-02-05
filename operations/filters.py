@@ -8,8 +8,6 @@ from .models import (
     ShipmentDocument,
     ShipmentNote,
     ShipmentTransportInfo,
-    ShipmentAdditionalInfo,
-    ShipmentWaybillFreightInfo,
     ShipmentPackages,
     ShipmentManifest,
     ShipmentManifestBooking,
@@ -109,51 +107,6 @@ class ShipmentTransportInfoFilter(filters.FilterSet):
             | dj_models.Q(flight_no__icontains=value)
             | dj_models.Q(bill_of_lading__icontains=value)
             | dj_models.Q(tracking_no__icontains=value)
-        )
-
-
-class ShipmentAdditionalInfoFilter(filters.FilterSet):
-    q = filters.CharFilter(method="search", label="Search")
-    created = filters.DateFromToRangeFilter()
-    updated = filters.DateFromToRangeFilter()
-
-    class Meta:
-        model = ShipmentAdditionalInfo
-        fields = {
-            "shipment": ["exact"],
-            "payment": ["exact"],
-            "payment_by": ["exact"],
-            "active": ["exact"],
-            "branch": ["exact"],
-        }
-
-    def search(self, queryset, name, value):
-        if not value:
-            return queryset
-        return queryset.filter(
-            dj_models.Q(final_destination__icontains=value)
-            | dj_models.Q(place_of_receipt__icontains=value)
-            | dj_models.Q(order_no__icontains=value)
-            | dj_models.Q(declaration_no__icontains=value)
-            | dj_models.Q(salesman__icontains=value)
-        )
-
-
-class ShipmentWaybillFreightInfoFilter(filters.FilterSet):
-    q = filters.CharFilter(method="search", label="Search")
-
-    class Meta:
-        model = ShipmentWaybillFreightInfo
-        fields = {"shipment": ["exact"], "awb_from_stock": ["exact"], "active": ["exact"], "branch": ["exact"]}
-
-    def search(self, queryset, name, value):
-        if not value:
-            return queryset
-        return queryset.filter(
-            dj_models.Q(air_waybill_no__icontains=value)
-            | dj_models.Q(accounting_info__icontains=value)
-            | dj_models.Q(exporter_name__icontains=value)
-            | dj_models.Q(importer_name__icontains=value)
         )
 
 
