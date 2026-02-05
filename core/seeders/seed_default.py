@@ -10,6 +10,7 @@ def seed_all_defaults(schema_name: str = "default"):
     try:
         from accounting.models import Currency, ChartofAccounts, PaymentMethod
         from master.models import Branch, MasterData, ShipmentPrefixes, ApplicationSettings
+        from core.models import CustomUser
     except Exception:
         return
 
@@ -20,6 +21,40 @@ def seed_all_defaults(schema_name: str = "default"):
 
         if not ApplicationSettings.objects.exists():
             ApplicationSettings.objects.create()
+
+        # ---- Branch defaults ----
+        main_branch_defaults = {
+            "name": "Main Branch",
+            "address": "Head Office",
+            "city": "Dubai",
+            "state": "Dubai",
+            "country": "United Arab Emirates",
+            "contact_number": "+971000000000",
+            "status": "operational",
+            "active": True,
+            "is_main_branch": True,
+        }
+
+        main_branch = (
+            Branch.objects.filter(is_main_branch=True).order_by("created").first()
+            or Branch.objects.order_by("created").first()
+        )
+
+        if main_branch:
+            for field_name, field_value in main_branch_defaults.items():
+                if field_name == "is_main_branch":
+                    continue
+                if not getattr(main_branch, field_name, None):
+                    setattr(main_branch, field_name, field_value)
+            main_branch.is_main_branch = True
+            main_branch.save()
+        else:
+            main_branch = Branch.objects.create(**main_branch_defaults)
+
+        Branch.objects.exclude(pk=main_branch.pk).filter(is_main_branch=True).update(is_main_branch=False)
+
+        # Associate superusers with the main branch
+        CustomUser.objects.filter(is_superuser=True).exclude(branch=main_branch).update(branch=main_branch)
 
         # ---- Currency defaults ----
         default_currencies = [
