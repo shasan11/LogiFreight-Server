@@ -15,6 +15,8 @@ AUTH_USER_MODEL = "core.CustomUser"
 
 
 INSTALLED_APPS = [
+    "drf_spectacular",
+
     "core",
     "accounting.apps.AccountingConfig",
     "actors.apps.ActorsConfig",
@@ -126,6 +128,8 @@ REST_FRAMEWORK = {
     ),
     # If you want public APIs by default, swap to AllowAny:
     # "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.AllowAny",),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+
 }
 
 
@@ -148,3 +152,11 @@ DJOSER = {
     "SEND_ACTIVATION_EMAIL": False,
     "SEND_CONFIRMATION_EMAIL": False,
 }
+
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Logifreight API",
+    "DESCRIPTION": "API documentation for your Django project",
+    "VERSION": "1.0.0",
+     "SERVE_INCLUDE_SCHEMA": False,
+ }
