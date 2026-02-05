@@ -9,7 +9,7 @@ from drf_spectacular.views import (
     SpectacularRedocView,
 )
 urlpatterns = [
-    path('/admin', admin.site.urls),
+    path('admin/', admin.site.urls),
     path('accounting/', include('accounting.urls')),
     path('actors/', include('actors.urls')),
     path('authentication/', include('authentication.urls')),
