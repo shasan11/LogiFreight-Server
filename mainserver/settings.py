@@ -81,7 +81,7 @@ TEMPLATES = [
 
 
 WSGI_APPLICATION = "mainserver.wsgi.application"
-
+CORS_ALLOW_ALL_ORIGINS=True
 
 DATABASES = {
     "default": {
